@@ -1,5 +1,6 @@
 ﻿#region usings
 using System;
+using System.ComponentModel.Composition;
 
 using VVVV.PluginInterfaces.V1;
 using VVVV.PluginInterfaces.V2;
@@ -10,6 +11,8 @@ using SlimDX.Direct3D11;
 
 using FeralTic.DX11.Resources;
 using FeralTic.DX11;
+
+using VVVV.Core.Logging;
 
 #endregion
 
@@ -25,11 +28,18 @@ namespace RealSense.Nodes
         [Input("Apply", IsBang = true, DefaultValue = 1)]
         protected ISpread<bool> FApply;
 
-        [Input("Manager", IsSingle = true)]
-        protected ISpread<PXCMSenseManager> FInManager;
+        //[Input("Manager", IsSingle = true)]
+        //protected ISpread<PXCMSenseManager> FInManager;
 
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
+
+        [Import()]
+        public ILogger FLogger;
+
+        private PXCMSession session;
+        private PXCMSenseManager senseManager;
+        private PXCMCapture.Device device;
 
         private bool initialized = false;
 
@@ -51,11 +61,40 @@ namespace RealSense.Nodes
 
             if (!initialized)
             {
-                this.Initialize();
+                try
+                {
+                    this.Initialize();
+                }
+                catch(Exception e)
+                {
+                    FLogger.Log(LogType.Error, e.Message);
+                    this.Uninitialize();
+
+                }
+
             }
             else
             {
-                this.UpdateFrame();
+                try
+                {
+                    this.UpdateFrame();
+                    if (this.senseManager != null)
+                    {
+                        if (this.senseManager.IsConnected())
+                        {
+                            FLogger.Log(LogType.Debug, "Connected");
+                        }
+                        else
+                        {
+                            FLogger.Log(LogType.Debug, "Not Connected");
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    FLogger.Log(LogType.Error, e.Message);
+                }
+
             }
         }
 
@@ -63,10 +102,16 @@ namespace RealSense.Nodes
         {
             this.image = null;
 
-            PXCMSenseManager senseManager = FInManager[0];
+            this.session = PXCMSession.CreateInstance();
+            if (this.session == null)
+            {
+                throw new Exception("PXCMSessionの取得に失敗しました");
+            }
+
+            this.senseManager = this.session.CreateSenseManager();
             if (senseManager == null)
             {
-                return;
+                throw new Exception("PXCMSenseManagerの取得に失敗しました");
             }
 
             // Depthストリームを有効にする
@@ -81,11 +126,20 @@ namespace RealSense.Nodes
             sts = senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました");
+                throw new Exception("初期化に失敗しました: " + sts.ToString());
             }
 
             // ミラー表示にする
-            senseManager.QueryCaptureManager().QueryDevice().SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
+            this.device = senseManager.QueryCaptureManager().QueryDevice();
+            if (this.device == null)
+            {
+                throw new Exception("デバイスの取得に失敗しました");
+            }
+            sts = this.device.SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
+            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception("ミラー表示の設定に失敗しました");
+            }
 
             this.initialized = true;
 
@@ -93,17 +147,11 @@ namespace RealSense.Nodes
 
         public void UpdateFrame()
         {
-            PXCMSenseManager senseManager = FInManager[0];
-            if (senseManager == null)
-            {
-                return;
-            }
-
             // フレームを取得する
             pxcmStatus ret = senseManager.AcquireFrame(false);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                return;
+                throw new Exception("フレームの取得に失敗しました");
             }
 
             // フレームデータを取得する
@@ -118,17 +166,7 @@ namespace RealSense.Nodes
             senseManager.ReleaseFrame();
         }
 
-        public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
-        {
-            this.FTextureOutput[0].Dispose(context);
-
-            /*PXCMSenseManager senseManager = FInManager[0];
-            if (senseManager != null)
-            {
-                senseManager.Dispose();
-                senseManager = null;
-            }*/
-        }
+        
 
         public void Update(IPluginIO pin, DX11RenderContext context)
         {
@@ -174,6 +212,7 @@ namespace RealSense.Nodes
             }
         }
 
+
         public byte[] GetDepthImage()
         {
             if (image == null)
@@ -204,8 +243,36 @@ namespace RealSense.Nodes
             return buffer;
         }
 
+        private void Uninitialize()
+        {
+            this.initialized = false;
+
+            if (this.device != null)
+            {
+                this.device.Dispose();
+                this.device = null;
+            }
+
+            if (this.senseManager != null)
+            {
+                this.senseManager.Close();
+                this.senseManager.Dispose();
+                this.senseManager = null;
+            }
+
+            if (this.session != null)
+            {
+                this.session.Dispose();
+                this.session = null;
+            }
+        }
+
         public void Dispose()
         {
+            FLogger.Log(LogType.Debug, "Dispose");
+
+            this.Uninitialize();
+
             if (this.FTextureOutput.SliceCount > 0)
             {
                 if (this.FTextureOutput[0] != null)
@@ -213,6 +280,19 @@ namespace RealSense.Nodes
                     this.FTextureOutput[0].Dispose();
                 }
             }
+        }
+
+        public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
+        {
+            FLogger.Log(LogType.Debug, "Destroy");
+            this.FTextureOutput[0].Dispose(context);
+
+            /*PXCMSenseManager senseManager = FInManager[0];
+            if (senseManager != null)
+            {
+                senseManager.Dispose();
+                senseManager = null;
+            }*/
         }
     }
 }

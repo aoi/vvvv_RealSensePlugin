@@ -51,6 +51,11 @@ namespace RealSense.Nodes
             {
                 this.Initialize();
             }
+
+            if (FOutManager[0] == null)
+            {
+                FLogger.Log(LogType.Debug, "manager is null.");
+            }
         }
 
         public void Initialize()

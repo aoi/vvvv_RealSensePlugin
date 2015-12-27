@@ -37,6 +37,9 @@ namespace RealSense.Nodes
         [Input("Manager", IsSingle = true)]
         protected ISpread<PXCMSenseManager> FInManager;
 
+        [Input("Enabled", IsSingle = true)]
+        protected ISpread<bool> FInEnabled;
+
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
@@ -45,8 +48,15 @@ namespace RealSense.Nodes
         private PXCMImage image;
         private bool FInvalidate;
 
+
+
         public void Evaluate(int SpreadMax)
         {
+            if (!FInEnabled[0])
+            {
+                return;
+            }
+
             if (this.FApply[0])
             {
                 this.FInvalidate = true;

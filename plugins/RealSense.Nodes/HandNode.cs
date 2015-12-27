@@ -21,27 +21,34 @@ namespace RealSense.Nodes
 
     public enum Mode
     {
+        Color,
         Depth,
         Mask
     }
 
     [PluginInfo(Name = "Hand", Category = "RealSense", Version = "Intel", Help = "RealSense Hand Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
-    public class HandNode : IPluginEvaluate, IDX11ResourceProvider, IDisposable
+    public class HandNode : IPluginEvaluate, IDisposable
     {
 
-        private const int WIDTH = 640;
-        private const int HEIGHT = 480;
+        private const int DEPTH_WIDTH = 640;
+        private const int DEPTH_HEIGHT = 480;
+
+        private const int COLOR_WIDTH = 640;
+        private const int COLOR_HEIGHT = 480;
         private const int FPS = 30;
         private const int BYTE_PER_PIXEL = 4;
 
+        private PXCMProjection projection;
+
+        private PXCMSenseManager senseManager;
         private PXCMHandModule handAnalyzer;
         private PXCMHandData handData;
 
         [Input("Apply", IsBang = true, DefaultValue = 1)]
         protected ISpread<bool> FApply;
 
-        [Input("Manager", IsSingle = true)]
-        protected ISpread<PXCMSenseManager> FInManager;
+        //[Input("Manager", IsSingle = true)]
+        //protected ISpread<PXCMSenseManager> FInManager;
 
         [Input("Mode", IsSingle = true, DefaultEnumEntry = "Depth")]
         protected ISpread<Mode> FInMode;
@@ -65,9 +72,9 @@ namespace RealSense.Nodes
 
         private bool FInvalidate = false;
 
-        private PXCMImage depthImage;
+        private PXCMImage image;
         //private byte[] imageBufferDepth = new byte[WIDTH * HEIGHT];
-        private byte[] imageBuffer = new byte[WIDTH * HEIGHT * BYTE_PER_PIXEL];
+        private byte[] imageBuffer = new byte[DEPTH_WIDTH * DEPTH_HEIGHT * BYTE_PER_PIXEL];
 
         [Import()]
         public ILogger FLogger;
@@ -95,6 +102,23 @@ namespace RealSense.Nodes
                 {
                     FLogger.Log(LogType.Error, e.Message);
                     this.initialized = false;
+                    
+                    if (this.handData != null)
+                    {
+                        this.handData.Dispose();
+                        this.handData = null;
+                    }
+                    if (this.handAnalyzer != null)
+                    {
+                        this.handAnalyzer.Dispose();
+                        this.handAnalyzer = null;
+                    }
+
+                    if (this.senseManager != null)
+                    {
+                        this.senseManager.Dispose();
+                        this.senseManager = null;
+                    }
                 }
             }
             else
@@ -105,55 +129,62 @@ namespace RealSense.Nodes
 
         public void Initialize()
         {
-
-            PXCMSenseManager senseManager = FInManager[0];
-            if (senseManager == null)
+            this.senseManager = PXCMSenseManager.CreateInstance();
+            if (this.senseManager == null)
             {
-                return;
+                throw new Exception("senseManager is null");
+            }
+
+            pxcmStatus sts;
+            if (FInMode[0] == Mode.Color)
+            {
+                // カラーストリームを有効にする
+                sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, COLOR_WIDTH, COLOR_HEIGHT, FPS);
+                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                {
+                    throw new Exception("カラーストリームの有効化に失敗しました");
+                }
             }
 
             // Depthストリームを有効にする
-            pxcmStatus sts = senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH,
-                WIDTH, HEIGHT, FPS);
+            sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, DEPTH_WIDTH, DEPTH_HEIGHT, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                FLogger.Log(LogType.Error, Convert.ToString(sts.IsSuccessful()));
                 throw new Exception("Depthストリームの有効化に失敗しました");
             }
 
             // 手の検出を有効にする
-            sts = senseManager.EnableHand();
+            sts = this.senseManager.EnableHand();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                FLogger.Log(LogType.Error, Convert.ToString(sts.IsSuccessful()));
                 throw new Exception("手の検出の有効化に失敗しました");
             }
+
 
             // パイプラインを初期化する
             sts = senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました");
+                throw new Exception("初期化に失敗しました: " + sts.ToString());
             }
+
 
             // ミラー表示にする
             senseManager.QueryCaptureManager().QueryDevice().SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
 
+            // 座標変換オブジェクトを作成
+            var device = senseManager.QueryCaptureManager().QueryDevice();
+            projection = device.CreateProjection(); 
+
             // 手の検出の初期化
-            this.InitializeHandTracking();
+            this.InitializeHandTracking(senseManager);
 
             this.initialized = true;
         }
 
-        private void InitializeHandTracking()
+        private void InitializeHandTracking(PXCMSenseManager senseManager)
         {
             // 手の検出器を取得する
-            PXCMSenseManager senseManager = FInManager[0];
-            if (senseManager == null)
-            {
-                return;
-            }
-
             handAnalyzer = senseManager.QueryHand();
             if (handAnalyzer == null)
             {
@@ -190,14 +221,17 @@ namespace RealSense.Nodes
 
         private void UpdateFrame()
         {
+            FLogger.Log(LogType.Debug, "Do UpdateFrame");
             try
             {
-                PXCMSenseManager senseManager = FInManager[0];
+                //PXCMSenseManager senseManager = FInManager[0];
                 if (senseManager == null) {
+                    this.initialized = false;
                     return;
                 }
                 // フレームを取得する
-                pxcmStatus ret = senseManager.AcquireFrame(false);
+                FLogger.Log(LogType.Debug, "Do AcquireFrame");
+                pxcmStatus ret = senseManager.AcquireFrame(true);
                 if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
                 {
                     return;
@@ -207,7 +241,15 @@ namespace RealSense.Nodes
                 PXCMCapture.Sample sample = senseManager.QuerySample();
                 if (sample != null)
                 {
-                    depthImage = sample.depth;
+                    if (FInMode[0] == Mode.Color)
+                    {
+                        image = sample.color;
+                    }
+                    else
+                    {
+                        image = sample.depth;
+                    }
+
                 }
 
                 // 手のデータを更新する
@@ -313,11 +355,32 @@ namespace RealSense.Nodes
                         continue;
                     }
 
-                    Vector3D posWorld = new Vector3D(jointData.positionWorld.x, jointData.positionWorld.y, jointData.positionWorld.z);
-                    Vector3D posImage = new Vector3D(jointData.positionImage.x, jointData.positionImage.y, jointData.positionImage.z);
+                    if (FInMode[0] == Mode.Color)
+                    {
+                        // Depth座標系をカラー座標系に変換する
+                        var depthPoint = new PXCMPoint3DF32[1];
+                        var colorPoint = new PXCMPointF32[1];
+                        depthPoint[0].x = jointData.positionImage.x;
+                        depthPoint[0].y = jointData.positionImage.y;
+                        depthPoint[0].z = jointData.positionWorld.z * 1000;
+                        projection.MapDepthToColor(depthPoint, colorPoint);
 
-                    FOutJointPositionWorld[sliceIndex] = posWorld;
-                    FOutJointPositionImage[sliceIndex] = posImage;
+                        Vector3D posWorld = new Vector3D(colorPoint[0].x, jointData.positionWorld.y, jointData.positionWorld.z);
+                        Vector3D posImage = new Vector3D(colorPoint[0].x, colorPoint[0].y, 0.0f);
+
+                        FOutJointPositionWorld[sliceIndex] = posWorld;
+                        FOutJointPositionImage[sliceIndex] = posImage;
+
+                    }
+                    else
+                    {
+                        Vector3D posWorld = new Vector3D(jointData.positionWorld.x, jointData.positionWorld.y, jointData.positionWorld.z);
+                        Vector3D posImage = new Vector3D(jointData.positionImage.x, jointData.positionImage.y, jointData.positionImage.z);
+
+                        FOutJointPositionWorld[sliceIndex] = posWorld;
+                        FOutJointPositionImage[sliceIndex] = posImage;
+                    }
+
                 }
 
                 // 手の重心を表示する
@@ -330,14 +393,14 @@ namespace RealSense.Nodes
 
         public byte[] GetDepthImage()
         {
-            if (depthImage == null)
+            if (image == null)
             {
                 return null;
             }
 
             // データを取得する
             PXCMImage.ImageData data;
-            pxcmStatus ret = depthImage.AcquireAccess(
+            pxcmStatus ret = image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
                 PXCMImage.PixelFormat.PIXEL_FORMAT_RGB32, out data
             );
@@ -348,38 +411,27 @@ namespace RealSense.Nodes
             }
 
             // バイト配列に変換する
-            var info = depthImage.QueryInfo();
+            var info = image.QueryInfo();
             var length = data.pitches[0] * info.height;
 
             var buffer = data.ToByteArray(0, length);
 
-            depthImage.ReleaseAccess(data);
+            image.ReleaseAccess(data);
 
             return buffer;
         }
 
         public void Update(IPluginIO pin, DX11RenderContext context)
         {
+            FLogger.Log(LogType.Debug, "Update");
+            if (!this.initialized) { return; }
+
             if (this.FTextureOutput.SliceCount == 0) { return; }
 
             if (this.FInvalidate || !this.FTextureOutput[0].Contains(context))
             {
 
-                SlimDX.DXGI.Format fmt;
-
-                if (FInMode[0] == Mode.Depth)
-                {
-                    fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
-                }
-                else if (FInMode[0] == Mode.Mask)
-                {
-                    fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
-                }
-                else
-                {
-                    FLogger.Log(LogType.Error, "モードが不正です");
-                    return;
-                }
+                SlimDX.DXGI.Format fmt　= SlimDX.DXGI.Format.B8G8R8A8_UNorm;
 
                 Texture2DDescription desc;
 
@@ -387,17 +439,17 @@ namespace RealSense.Nodes
                 {
                     desc = this.FTextureOutput[0][context].Resource.Description;
 
-                    if (desc.Width != WIDTH || desc.Height != HEIGHT || desc.Format != fmt)
+                    if (desc.Width != DEPTH_WIDTH || desc.Height != DEPTH_HEIGHT || desc.Format != fmt)
                     {
                         this.FTextureOutput[0].Dispose(context);
-                        DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+                        DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, DEPTH_WIDTH, DEPTH_HEIGHT, fmt);
 
                         this.FTextureOutput[0][context] = t2D;
                     }
                 }
                 else
                 {
-                    this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+                    this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, DEPTH_WIDTH, DEPTH_HEIGHT, fmt);
 #if DEBUG
                     this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
 #endif
@@ -409,7 +461,7 @@ namespace RealSense.Nodes
 
                 if (FInMode[0] == Mode.Depth)
                 {
-                    if (depthImage != null)
+                    if (image != null)
                     {
                         t.WriteData(this.GetDepthImage());
                         this.FInvalidate = false;
@@ -431,6 +483,7 @@ namespace RealSense.Nodes
 
         public void Dispose()
         {
+            FLogger.Log(LogType.Debug, "Dispose");
             if (this.FTextureOutput.SliceCount > 0)
             {
                 if (this.FTextureOutput[0] != null)
@@ -442,6 +495,7 @@ namespace RealSense.Nodes
 
         public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
         {
+            FLogger.Log(LogType.Debug, "Destory");
             this.FTextureOutput[0].Dispose(context);
 
             /*PXCMSenseManager senseManager = FInManager[0];
