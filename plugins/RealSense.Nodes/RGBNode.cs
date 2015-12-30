@@ -1,9 +1,6 @@
 #region usings
 using System;
 using System.ComponentModel.Composition;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 using VVVV.PluginInterfaces.V1;
 using VVVV.PluginInterfaces.V2;
@@ -11,7 +8,6 @@ using VVVV.PluginInterfaces.V2;
 using VVVV.DX11;
 
 using SlimDX.Direct3D11;
-using SlimDX;
 
 using FeralTic.DX11.Resources;
 using FeralTic.DX11;
@@ -47,7 +43,6 @@ namespace RealSense.Nodes
 
         private PXCMImage image;
         private bool FInvalidate;
-
 
 
         public void Evaluate(int SpreadMax)

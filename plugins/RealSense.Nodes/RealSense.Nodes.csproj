@@ -101,6 +101,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DepthNode.cs" />
+    <Compile Include="FaceNode.cs" />
     <Compile Include="HandNode.cs" />
     <Compile Include="RealSenseNode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

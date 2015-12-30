@@ -210,6 +210,10 @@ namespace RealSense.Nodes
 
             // ミラー表示にする
             this.device = this.senseManager.QueryCaptureManager().QueryDevice();
+            if (this.device == null)
+            {
+                throw new Exception("デバイスの作成に失敗しました");
+            }
             sts = this.device.SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
