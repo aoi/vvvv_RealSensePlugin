@@ -25,6 +25,8 @@ namespace RealSense.Nodes
         private const int COLOR_HEIGHT = 480;
         private const int COLOR_FPS = 30;
 
+        private const int MAX_FACES = 2;
+
         [Import()]
         public ILogger FLogger;
 
@@ -34,13 +36,16 @@ namespace RealSense.Nodes
         [Input("Apply", IsBang = true, DefaultValue = 1)]
         protected ISpread<bool> FApply;
 
-        [Output("FacePosition")]
+        [Output("Face Position")]
         protected ISpread<Vector2D> FOutFacePosition;
 
-        [Output("FaceWidth")]
+        [Output("Face Width")]
         protected ISpread<int> FOutFaceWidth;
-        [Output("FaceHeight")]
+        [Output("Face Height")]
         protected ISpread<int> FOutFaceHeight;
+
+        [Output("Face Pose")]
+        protected ISpread<Vector3D> FOutFacePose;
 
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
@@ -58,6 +63,11 @@ namespace RealSense.Nodes
 
         public void Evaluate(int SpreadMax)
         {
+            if (FInEnabled.IsChanged && !FInEnabled[0])
+            {
+                this.Uninitialize();
+            }
+
             if (!FInEnabled[0]) { return; }
 
             if (this.FApply[0]) { this.FInvalidate = true; }
@@ -97,7 +107,7 @@ namespace RealSense.Nodes
                 }
                 catch (Exception e)
                 {
-                    FLogger.Log(LogType.Error, e.Message);
+                    FLogger.Log(LogType.Error, "UpdateFrame: " + e.Message);
                     this.Uninitialize();
                 }
             }
@@ -152,12 +162,14 @@ namespace RealSense.Nodes
 
             // 顔検出のプロパティを取得
             this.config = this.faceModule.CreateActiveConfiguration();
-            this.config.SetTrackingMode(PXCMFaceConfiguration.TrackingModeType.FACE_MODE_COLOR_PLUS_DEPTH);
+            this.config.SetTrackingMode(PXCMFaceConfiguration.TrackingModeType.FACE_MODE_COLOR);
             this.config.ApplyChanges();
+            this.config.Update();
 
             // パイプラインを初期化する
             sts = this.senseManager.Init();
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR &&
+                sts != pxcmStatus.PXCM_STATUS_CAPTURE_CONFIG_ALREADY_SET)
             {
                 throw new Exception("初期化に失敗しました: " + sts.ToString());
             }
@@ -185,9 +197,14 @@ namespace RealSense.Nodes
                 //this.device.SetIVCAMMotionRangeTradeOff(21);
             }
 
+            // 検出
             this.config.detection.isEnabled = true;
-            this.config.detection.maxTrackedFaces = 2;
+            this.config.detection.maxTrackedFaces = MAX_FACES;
+            // ポーズ
+            this.config.pose.isEnabled = true;
+            this.config.pose.maxTrackedFaces = MAX_FACES;
             this.config.ApplyChanges();
+            this.config.Update();
 
             this.faceData = faceModule.CreateOutput();
         }
@@ -222,7 +239,6 @@ namespace RealSense.Nodes
 
             // 検出した顔の数を取得する
             int numFaces = this.faceData.QueryNumberOfDetectedFaces();
-
             for (int i=0; i<numFaces; ++i)
             {
                 // 顔の情報を取得する
@@ -232,18 +248,29 @@ namespace RealSense.Nodes
                 var detection = face.QueryDetection();
                 if (detection != null)
                 {
+                    // 検出
                     PXCMRectI32 faceRect;
                     detection.QueryBoundingRect(out faceRect);
-                    int sliceCount = i + i;
+                    int sliceCount = i + 1;
                     FOutFacePosition.SliceCount = sliceCount;
                     FOutFacePosition[i] = new Vector2D(faceRect.x, faceRect.y);
                     FOutFaceWidth.SliceCount = sliceCount;
                     FOutFaceWidth[i] = faceRect.w;
                     FOutFaceHeight.SliceCount = sliceCount;
                     FOutFaceHeight[i] = faceRect.h;
+
+                    // ポーズ:Depth使用時のみ
+                    PXCMFaceData.PoseData pose = face.QueryPose();
+                    if (pose != null)
+                    {
+                        // 顔の姿勢情報
+                        PXCMFaceData.PoseEulerAngles poseAngle = new PXCMFaceData.PoseEulerAngles();
+                        pose.QueryPoseAngles(out poseAngle);
+                        FOutFacePose.SliceCount = sliceCount;
+                        FOutFacePose[i] = new Vector3D(poseAngle.pitch, poseAngle.yaw, poseAngle.roll);
+                    }
                 }
             }
-
         }
 
         public void Update(IPluginIO pin, DX11RenderContext context)
