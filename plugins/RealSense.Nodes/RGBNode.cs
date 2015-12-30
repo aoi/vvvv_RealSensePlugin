@@ -52,15 +52,9 @@ namespace RealSense.Nodes
 
         public void Evaluate(int SpreadMax)
         {
-            if (!FInEnabled[0])
-            {
-                return;
-            }
+            if (!FInEnabled[0]) { return; }
 
-            if (this.FApply[0])
-            {
-                this.FInvalidate = true;
-            }
+            if (this.FApply[0]) { this.FInvalidate = true; }
 
             if (this.image == null)
             {

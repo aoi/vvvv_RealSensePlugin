@@ -77,7 +77,6 @@ namespace RealSense.Nodes
             {
                 try
                 {
-                    this.UpdateFrame();
                     if (this.senseManager != null)
                     {
                         if (this.senseManager.IsConnected())
@@ -89,6 +88,12 @@ namespace RealSense.Nodes
                             FLogger.Log(LogType.Debug, "Not Connected");
                         }
                     }
+                    else
+                    {
+                        FLogger.Log(LogType.Debug, "senseManager is null");
+                    }
+                    this.UpdateFrame();
+                    
                 }
                 catch (Exception e)
                 {
@@ -115,8 +120,7 @@ namespace RealSense.Nodes
             }
 
             // Depthストリームを有効にする
-            pxcmStatus sts = senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH,
-                WIDTH, HEIGHT, FPS);
+            pxcmStatus sts = senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, WIDTH, HEIGHT, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("Depthストリームの有効化に失敗しました");
@@ -148,10 +152,14 @@ namespace RealSense.Nodes
         public void UpdateFrame()
         {
             // フレームを取得する
-            pxcmStatus ret = senseManager.AcquireFrame(false);
+            pxcmStatus ret = this.senseManager.AcquireFrame(false);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("フレームの取得に失敗しました");
+                if (ret == pxcmStatus.PXCM_STATUS_EXEC_ABORTED)
+                {
+                    this.Uninitialize();
+                }
+                throw new Exception("フレームの取得に失敗しました: " + ret.ToString());
             }
 
             // フレームデータを取得する
@@ -286,13 +294,6 @@ namespace RealSense.Nodes
         {
             FLogger.Log(LogType.Debug, "Destroy");
             this.FTextureOutput[0].Dispose(context);
-
-            /*PXCMSenseManager senseManager = FInManager[0];
-            if (senseManager != null)
-            {
-                senseManager.Dispose();
-                senseManager = null;
-            }*/
         }
     }
 }
