@@ -47,6 +47,11 @@ namespace RealSense.Nodes
         [Output("Face Pose")]
         protected ISpread<Vector3D> FOutFacePose;
 
+        [Output("Face Landmark Bin Size")]
+        protected ISpread<int> FOutFaceLandmarkBinSize;
+        [Output("Face Landmark Points")]
+        protected ISpread<Vector2D> FOutFaceLandmarkPoints;
+
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
@@ -203,6 +208,9 @@ namespace RealSense.Nodes
             // ポーズ
             this.config.pose.isEnabled = true;
             this.config.pose.maxTrackedFaces = MAX_FACES;
+            // ランドマーク
+            this.config.landmarks.isEnabled = true;
+            this.config.landmarks.maxTrackedFaces = MAX_FACES;
             this.config.ApplyChanges();
             this.config.Update();
 
@@ -238,6 +246,7 @@ namespace RealSense.Nodes
             this.faceData.Update();
 
             // 検出した顔の数を取得する
+            FOutFaceLandmarkPoints.SliceCount = 0;
             int numFaces = this.faceData.QueryNumberOfDetectedFaces();
             for (int i=0; i<numFaces; ++i)
             {
@@ -268,6 +277,32 @@ namespace RealSense.Nodes
                         pose.QueryPoseAngles(out poseAngle);
                         FOutFacePose.SliceCount = sliceCount;
                         FOutFacePose[i] = new Vector3D(poseAngle.pitch, poseAngle.yaw, poseAngle.roll);
+                    }
+
+                    // ランドマーク
+                    
+                    PXCMFaceData.LandmarksData landmarks = face.QueryLandmarks();
+                    if (landmarks != null)
+                    {
+                        // ランドマークデータから何個の特徴点が認識できたか
+                        int numPoints = landmarks.QueryNumPoints();
+                        FOutFaceLandmarkBinSize.SliceCount = sliceCount;
+                        FOutFaceLandmarkBinSize[i] = numPoints;
+
+                        // 認識できた特徴点の数だけ、特徴点を格納するインスタンスを生成する
+                        PXCMFaceData.LandmarkPoint[] landmarkPoints = new PXCMFaceData.LandmarkPoint[numPoints];
+                        int prevSliceCount = FOutFaceLandmarkPoints.SliceCount;
+                        FOutFaceLandmarkPoints.SliceCount = prevSliceCount + numPoints;
+
+                        // ランドマークデータから特徴点の位置を取得
+                        if (landmarks.QueryPoints(out landmarkPoints))
+                        {
+                            for (int j = 0; j < numPoints; j++)
+                            {
+                                int index = prevSliceCount + j;
+                                FOutFaceLandmarkPoints[index] = new Vector2D(landmarkPoints[j].image.x, landmarkPoints[j].image.y);
+                            }
+                        }
                     }
                 }
             }
