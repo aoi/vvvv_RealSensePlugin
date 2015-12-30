@@ -269,8 +269,6 @@ namespace RealSense.Nodes
 
         private void UpdateFrame()
         {
-            FLogger.Log(LogType.Debug, "UpdateFrame");
-
             // フレームを取得する
             pxcmStatus ret = this.senseManager.AcquireFrame(true);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
@@ -323,6 +321,7 @@ namespace RealSense.Nodes
             this.UpdateHandFrame();
 
             senseManager.ReleaseFrame();
+            colorSenseManager.ReleaseFrame();
         }
 
         private void UpdateHandFrame()
