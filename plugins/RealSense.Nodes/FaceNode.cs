@@ -18,6 +18,30 @@ using VVVV.Core.Logging;
 
 namespace RealSense.Nodes
 {
+    public enum FaceExpressions
+    {
+        BROW_RAISER_LEFT,
+        BROW_RAISER_RIGHT,
+        BROW_LOWERER_LEFT,
+        BROW_LOWERER_RIGHT,
+        SMILE,
+        KISS,
+        MOUTH_OPEN,
+        TONGUE_OUT,
+        HEAD_TURN_LEFT,
+        HEAD_TURN_RIGHT,
+        HEAD_UP,
+        HEAD_DOWN,
+        HEAD_TILT_LEFT,
+        HEAD_TILT_RIGHT,
+        EYES_CLOSED_LEFT,
+        EYES_CLOSED_RIGHT,
+        EYES_TURN_LEFT,
+        EYES_TURN_RIGHT,
+        EYES_UP,
+        EYES_DOWN,
+    }
+
     [PluginInfo(Name = "Face", Category = "RealSense", Version = "Intel", Help = "RealSense Face.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class FaceNode : IPluginEvaluate, IDX11ResourceProvider, IDisposable
     {
@@ -36,6 +60,9 @@ namespace RealSense.Nodes
         [Input("Apply", IsBang = true, DefaultValue = 1)]
         protected ISpread<bool> FApply;
 
+        [Input("Face Expressions", DefaultEnumEntry = "EXPRESSION_BROW_RAISER_LEFT")]
+        protected ISpread<PXCMFaceData.ExpressionsData.FaceExpression> FInExpressions;
+
         [Output("Face Position")]
         protected ISpread<Vector2D> FOutFacePosition;
 
@@ -51,6 +78,9 @@ namespace RealSense.Nodes
         protected ISpread<int> FOutFaceLandmarkBinSize;
         [Output("Face Landmark Points")]
         protected ISpread<Vector2D> FOutFaceLandmarkPoints;
+
+        [Output("Face Expressions Result")]
+        protected ISpread<int> FOutFaceExpressionsResult;
 
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
@@ -211,6 +241,15 @@ namespace RealSense.Nodes
             // ランドマーク
             this.config.landmarks.isEnabled = true;
             this.config.landmarks.maxTrackedFaces = MAX_FACES;
+            // 表出情報
+            PXCMFaceConfiguration.ExpressionsConfiguration expressionConfig =  this.config.QueryExpressions();
+            if (expressionConfig == null)
+            {
+                throw new Exception("表術情報の設定に失敗しました");
+            }
+            expressionConfig.Enable();
+            expressionConfig.EnableAllExpressions();
+            expressionConfig.properties.maxTrackedFaces = MAX_FACES;
             this.config.ApplyChanges();
             this.config.Update();
 
@@ -247,6 +286,7 @@ namespace RealSense.Nodes
 
             // 検出した顔の数を取得する
             FOutFaceLandmarkPoints.SliceCount = 0;
+            FOutFaceExpressionsResult.SliceCount = 0;
             int numFaces = this.faceData.QueryNumberOfDetectedFaces();
             for (int i=0; i<numFaces; ++i)
             {
@@ -280,13 +320,12 @@ namespace RealSense.Nodes
                     }
 
                     // ランドマーク
-                    
                     PXCMFaceData.LandmarksData landmarks = face.QueryLandmarks();
+                    FOutFaceLandmarkBinSize.SliceCount = sliceCount;
                     if (landmarks != null)
                     {
                         // ランドマークデータから何個の特徴点が認識できたか
                         int numPoints = landmarks.QueryNumPoints();
-                        FOutFaceLandmarkBinSize.SliceCount = sliceCount;
                         FOutFaceLandmarkBinSize[i] = numPoints;
 
                         // 認識できた特徴点の数だけ、特徴点を格納するインスタンスを生成する
@@ -303,6 +342,35 @@ namespace RealSense.Nodes
                                 FOutFaceLandmarkPoints[index] = new Vector2D(landmarkPoints[j].image.x, landmarkPoints[j].image.y);
                             }
                         }
+                    }
+                    else
+                    {
+                        FOutFaceLandmarkBinSize[i] = 0;
+                        FOutFaceLandmarkPoints.SliceCount = 0;
+                    }
+
+                    // 表出情報
+                    PXCMFaceData.ExpressionsData expressionData = face.QueryExpressions();
+                    if (expressionData != null)
+                    {
+                        for (int j = 0; j<FInExpressions.SliceCount; j++)
+                        {
+                            PXCMFaceData.ExpressionsData.FaceExpressionResult expressionResult;
+                            if (expressionData.QueryExpression(FInExpressions[j], out expressionResult))
+                            {
+                                FOutFaceExpressionsResult.SliceCount++;
+                                FOutFaceExpressionsResult[j] = expressionResult.intensity;
+                            }
+                            else
+                            {
+                                FLogger.Log(LogType.Debug, "表出情報が取得できませんでした");
+                            }
+                        }
+
+                    }
+                    else
+                    {
+                        FOutFaceExpressionsResult.SliceCount = 0;
                     }
                 }
             }
@@ -355,7 +423,7 @@ namespace RealSense.Nodes
             }
         }
 
-        public byte[] GetColorImage()
+        private byte[] GetColorImage()
         {
             if (this.image == null)
             {
@@ -384,6 +452,11 @@ namespace RealSense.Nodes
 
             return buffer;
         }
+
+        //private PXCMFaceData.ExpressionsData.FaceExpression getExpression(FaceExpressions expression)
+        //{
+        //    PXCMFaceData.ExpressionsData.FaceExpression
+        //}
 
         private void Uninitialize()
         {
