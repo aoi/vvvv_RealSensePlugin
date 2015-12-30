@@ -249,6 +249,7 @@ namespace RealSense.Nodes
         public void Update(IPluginIO pin, DX11RenderContext context)
         {
             if (!this.initialized) { return; }
+            if (this.image == null) { return; }
 
             if (this.FTextureOutput.SliceCount == 0) { return; }
 
@@ -283,7 +284,7 @@ namespace RealSense.Nodes
 
                 var t = this.FTextureOutput[0][context];
 
-                byte[] buffer = this.GetColorImage(image);
+                byte[] buffer = this.GetColorImage();
                 if (buffer != null)
                 {
                     t.WriteData(buffer);
@@ -292,16 +293,16 @@ namespace RealSense.Nodes
             }
         }
 
-        public byte[] GetColorImage(PXCMImage colorFrame)
+        public byte[] GetColorImage()
         {
-            if (colorFrame == null)
+            if (this.image == null)
             {
                 return null;
             }
 
             // データを取得する
             PXCMImage.ImageData data;
-            pxcmStatus ret = colorFrame.AcquireAccess(
+            pxcmStatus ret = this.image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
                 PXCMImage.PixelFormat.PIXEL_FORMAT_RGB32, out data
             );
@@ -312,17 +313,12 @@ namespace RealSense.Nodes
             }
 
             // バイト配列に変換する
-            var info = colorFrame.QueryInfo();
+            var info = this.image.QueryInfo();
             var length = data.pitches[0] * info.height;
 
             var buffer = data.ToByteArray(0, length);
 
-            /*var width = (int)data.pitches[0] / sizeof(Int32);
-            var height = (int)image.info.height;
-            var length = width * height;
-            var buffer = data.ToByteArray(0, length);*/
-            FLogger.Log(LogType.Debug, "length: " + length.ToString());
-            colorFrame.ReleaseAccess(data);
+            this.image.ReleaseAccess(data);
 
             return buffer;
         }
