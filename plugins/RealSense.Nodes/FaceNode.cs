@@ -82,6 +82,9 @@ namespace RealSense.Nodes
         [Output("Face Expressions Result")]
         protected ISpread<int> FOutFaceExpressionsResult;
 
+        [Output("Pulse")]
+        protected ISpread<Single> FOutPulse;
+
         [Output("Texture Out")]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
@@ -245,11 +248,19 @@ namespace RealSense.Nodes
             PXCMFaceConfiguration.ExpressionsConfiguration expressionConfig =  this.config.QueryExpressions();
             if (expressionConfig == null)
             {
-                throw new Exception("表術情報の設定に失敗しました");
+                throw new Exception("表出情報検出の設定に失敗しました");
             }
             expressionConfig.Enable();
             expressionConfig.EnableAllExpressions();
             expressionConfig.properties.maxTrackedFaces = MAX_FACES;
+            // 心拍数
+            PXCMFaceConfiguration.PulseConfiguration pulseConfig = this.config.QueryPulse();
+            if (pulseConfig == null)
+            {
+                throw new Exception("心拍数検出の設定に失敗しました。");
+            }
+            pulseConfig.Enable();
+            pulseConfig.properties.maxTrackedFaces = MAX_FACES;
             this.config.ApplyChanges();
             this.config.Update();
 
@@ -371,6 +382,14 @@ namespace RealSense.Nodes
                     else
                     {
                         FOutFaceExpressionsResult.SliceCount = 0;
+                    }
+
+                    // 心拍数
+                    PXCMFaceData.PulseData pulseData = face.QueryPulse();
+                    if (pulseData != null)
+                    {
+                        FOutPulse.SliceCount = sliceCount;
+                        FOutPulse[i] = pulseData.QueryHeartRate();
                     }
                 }
             }
