@@ -22,14 +22,12 @@ namespace RealSense.Nodes
     public class SegmentationNode : BaseNode
     {
 
-        private PXCMSession segSession;
         private PXCM3DSeg segmentation;
 
         protected override void Initialize()
         {
             this.session = PXCMSession.CreateInstance();
-            this.segSession = PXCMSession.CreateInstance();
-            if (this.session == null || this.segSession == null)
+            if (this.session == null)
             {
                 throw new Exception("セッションを作成できませんでした");
             }
@@ -151,12 +149,6 @@ namespace RealSense.Nodes
             {
                 this.segmentation.Dispose();
                 this.segmentation = null;
-            }
-
-            if (this.segSession != null)
-            {
-                this.segSession.Dispose();
-                this.segSession = null;
             }
 
             base.Uninitialize();

@@ -134,6 +134,29 @@ namespace RealSense.Nodes
 
         protected abstract byte[] GetImageBuffer();
 
+        protected void GetSessionAndSenseManager()
+        {
+            this.session = PXCMSession.CreateInstance();
+            if (this.session == null)
+            {
+                throw new Exception("セッションを作成できませんでした");
+            }
+            this.senseManager = this.session.CreateSenseManager();
+            if (this.senseManager == null)
+            {
+                throw new Exception("マネージャを作成できませんでした");
+            }
+        }
+
+        protected void GetDevice()
+        {
+            this.device = this.senseManager.QueryCaptureManager().QueryDevice();
+            if (this.device == null)
+            {
+                throw new Exception("デバイスの取得に失敗しました");
+            }
+        }
+
         protected void EnableColorStream()
         {
             pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, WIDTH, HEIGHT, FPS);
