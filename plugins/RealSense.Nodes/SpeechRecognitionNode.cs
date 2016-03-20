@@ -21,18 +21,17 @@ using System.Collections.Generic;
 
 namespace RealSense.Nodes
 {
-    public enum AudioSources{
-    HOGE
-    }
-
     [PluginInfo(Name = "SpeechRecognition", Category = "RealSense", Version = "Intel", Help = "RealSense Speech Recognition.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class SpeechRecognitionNode : BaseNode, IPartImportsSatisfiedNotification
     {
         private PXCMAudioSource audioSource;
         private PXCMSpeechRecognition recognition;
 
-        [Input("Audio Source", IsSingle = true)]
-        protected ISpread<AudioSources> FInAudioSource;
+        [Input("Audio Device", EnumName = "AudioDevice", IsSingle = true)]
+        protected ISpread<EnumEntry> FInAudioDevice;
+
+        [Input("Language", EnumName = "Language", IsSingle = true)]
+        protected IDiffSpread<EnumEntry> FInLanguage;
 
         [Output("Recognition Data", IsSingle = true, DefaultString = "")]
         protected ISpread<string> FOutRecognitionData;
@@ -62,7 +61,8 @@ namespace RealSense.Nodes
             // 使用可能なデバイスをスキャンする
             this.audioSource.ScanDevices();
 
-            var deviceNum = this.audioSource.QueryDeviceNum();
+            int deviceNum = this.audioSource.QueryDeviceNum();
+            string[] deviceNames = new string[deviceNum];
             for (int i = 0; i < deviceNum; ++i)
             {
                 PXCMAudioSource.DeviceInfo tmpDviceInfo;
@@ -73,8 +73,11 @@ namespace RealSense.Nodes
                 }
 
                 FLogger.Log(LogType.Debug, "デバイス情報: " + tmpDviceInfo.name);
+                deviceNames[i] = tmpDviceInfo.name;
                 deviceInfos.Add(tmpDviceInfo);
             }
+            
+            EnumManager.UpdateEnum("AudioDevice", deviceNames[0], deviceNames);
 
             this.audioSource.Dispose();
 
@@ -106,6 +109,9 @@ namespace RealSense.Nodes
             {
                 throw new Exception("対応言語の設定に失敗しました ");
             }
+
+            List<string> languages = new List<string>();
+
             for (int i = 0; ; ++i)
             {
                 // 音声認識エンジンが持っているプロファイルを取得する
@@ -118,11 +124,12 @@ namespace RealSense.Nodes
 
                 // 対応言語を表示する
                 FLogger.Log(LogType.Debug, "対応言語: " + pinfo.language);
-
+                languages.Add(pinfo.language.ToString());
                 // 日本語のエンジンを使う
-                FLogger.Log(LogType.Debug, "set pinfo");
                 profileInfos.Add(pinfo);
             }
+            EnumManager.UpdateEnum("Language", languages[0], languages.ToArray());
+
             rec.Dispose();
 
             if (profileInfos.Count == 0)
@@ -150,7 +157,20 @@ namespace RealSense.Nodes
             pxcmStatus sts = pxcmStatus.PXCM_STATUS_NO_ERROR;
 
             // 音声入力デバイスを設定する
-            sts = this.audioSource.SetDevice(this.deviceInfos[2]);
+            PXCMAudioSource.DeviceInfo deviceInfo = null;
+            foreach (PXCMAudioSource.DeviceInfo d in this.deviceInfos)
+            {
+                if (d.name.Equals(FInAudioDevice[0]))
+                {
+                    deviceInfo = d;
+                }
+            }
+            if (deviceInfo == null)
+            {
+                throw new Exception("音声入力デバイスの設定に失敗しました");
+            }
+            FLogger.Log(LogType.Debug, deviceInfo.name);
+            sts = this.audioSource.SetDevice(deviceInfo);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("音声入力デバイスの設定に失敗しました");
@@ -166,8 +186,22 @@ namespace RealSense.Nodes
             }
 
             // 使用する言語を設定する
-            FLogger.Log(LogType.Debug, "set " + profileInfos[0].language);
-            sts = this.recognition.SetProfile(profileInfos[0]);
+            PXCMSpeechRecognition.ProfileInfo profileInfo = null;
+            foreach (PXCMSpeechRecognition.ProfileInfo p in profileInfos)
+            {
+                if (p.language.ToString().Equals(FInLanguage[0]))
+                {
+                    profileInfo = p;
+                }
+            }
+            if (profileInfo == null)
+            {
+                throw new Exception("音声認識エンジンオブジェクトの設定に失敗しました");
+            }
+
+
+            FLogger.Log(LogType.Debug, "set " + profileInfo.language);
+            sts = this.recognition.SetProfile(profileInfo);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("音声認識エンジンオブジェクトの設定に失敗しました");

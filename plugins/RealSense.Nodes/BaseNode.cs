@@ -26,9 +26,6 @@ namespace RealSense.Nodes
         protected const int FPS = 30;
         protected const int BYTE_PER_PIXEL = 4;
 
-        [Input("Apply", IsSingle = true, DefaultValue = 1)]
-        protected ISpread<bool> FApply;
-
         [Input("Enabled", IsSingle = true, DefaultValue = 0)]
         protected ISpread<bool> FInEnabled;
 
@@ -36,7 +33,6 @@ namespace RealSense.Nodes
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
         protected bool initialized = false;
-        protected bool FInvalidate = false;
 
         protected PXCMSession session;
         protected PXCMSenseManager senseManager;
@@ -56,8 +52,6 @@ namespace RealSense.Nodes
 
             if (!FInEnabled[0]) { return; }
 
-            if (this.FApply[0]) { this.FInvalidate = true; }
-
             if (this.image == null)
             {
                 if (this.FTextureOutput.SliceCount == 1)
@@ -72,7 +66,7 @@ namespace RealSense.Nodes
                 if (this.FTextureOutput[0] == null) { this.FTextureOutput[0] = new DX11Resource<DX11DynamicTexture2D>(); }
             }
 
-            if (!initialized)
+            if (!this.initialized)
             {
                 try
                 {
@@ -81,7 +75,6 @@ namespace RealSense.Nodes
                 catch (Exception e)
                 {
                     FLogger.Log(LogType.Error, e.Message + e.StackTrace);
-
                     this.Uninitialize();
                 }
             }
@@ -151,6 +144,10 @@ namespace RealSense.Nodes
         protected void GetDevice()
         {
             this.device = this.senseManager.QueryCaptureManager().QueryDevice();
+            PXCMCapture.DeviceInfo dinfo;
+            this.device.QueryDeviceInfo(out dinfo);
+            FLogger.Log(LogType.Debug, dinfo.model.ToString());
+
             if (this.device == null)
             {
                 throw new Exception("デバイスの取得に失敗しました");
@@ -175,7 +172,7 @@ namespace RealSense.Nodes
             }
         }
 
-        protected void SenseManagerInit()
+        protected void InitSenseManager()
         {
             pxcmStatus sts = this.senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
@@ -199,43 +196,38 @@ namespace RealSense.Nodes
 
             if (this.FTextureOutput.SliceCount == 0) { return; }
 
-            if (this.FInvalidate || !this.FTextureOutput[0].Contains(context))
+            SlimDX.DXGI.Format fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
+
+            Texture2DDescription desc;
+
+            if (this.FTextureOutput[0].Contains(context))
             {
-
-                SlimDX.DXGI.Format fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
-
-                Texture2DDescription desc;
-
-                if (this.FTextureOutput[0].Contains(context))
-                {
-                    desc = this.FTextureOutput[0][context].Resource.Description;
-
-                    if (desc.Width != WIDTH || desc.Height != HEIGHT || desc.Format != fmt)
-                    {
-                        this.FTextureOutput[0].Dispose(context);
-                        DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
-
-                        this.FTextureOutput[0][context] = t2D;
-                    }
-                }
-                else
-                {
-                    this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
-#if DEBUG
-                    this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
-#endif
-                }
-
                 desc = this.FTextureOutput[0][context].Resource.Description;
 
-                var t = this.FTextureOutput[0][context];
-
-                var buffer = this.GetImageBuffer();
-                if (buffer != null)
+                if (desc.Width != WIDTH || desc.Height != HEIGHT || desc.Format != fmt)
                 {
-                    t.WriteData(buffer);
-                    this.FInvalidate = false;
+                    this.FTextureOutput[0].Dispose(context);
+                    DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+
+                    this.FTextureOutput[0][context] = t2D;
                 }
+            }
+            else
+            {
+                this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+#if DEBUG
+                this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
+#endif
+            }
+
+            desc = this.FTextureOutput[0][context].Resource.Description;
+
+            var t = this.FTextureOutput[0][context];
+
+            var buffer = this.GetImageBuffer();
+            if (buffer != null)
+            {
+                t.WriteData(buffer);
             }
         }
 

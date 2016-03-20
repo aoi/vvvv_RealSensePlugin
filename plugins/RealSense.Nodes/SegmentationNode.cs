@@ -31,7 +31,7 @@ namespace RealSense.Nodes
             {
                 throw new Exception("セッションを作成できませんでした");
             }
-            FLogger.Log(LogType.Debug, this.session.QueryVersion().major + ":" + this.session.QueryVersion().minor);
+
             this.senseManager = this.session.CreateSenseManager();
             if (this.senseManager == null)
             {
@@ -47,7 +47,7 @@ namespace RealSense.Nodes
             }
 
             // パイプラインを初期化する
-            this.SenseManagerInit();
+            this.InitSenseManager();
 
             this.segmentation = this.senseManager.Query3DSeg();
             if (this.segmentation == null)
@@ -55,18 +55,9 @@ namespace RealSense.Nodes
                 throw new Exception("セグメンテーションの取得に失敗しました");
             }
 
-            this.device = this.senseManager.QueryCaptureManager().QueryDevice();
-            if (this.device == null)
-            {
-                throw new Exception("デバイスを取得できませんでした");
-            }
+            this.GetDevice();
 
             this.SetMirrorMode();
-            sts = this.device.SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception("ミラー表示の設定に失敗しました");
-            }
 
             this.initialized = true;
         }
