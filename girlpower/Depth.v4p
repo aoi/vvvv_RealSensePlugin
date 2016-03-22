@@ -1,6 +1,6 @@
 <!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta34.2.dtd" >
-   <PATCH nodename="C:\workspace\vvvv\RealSense\girlpower\Depth.v4p" systemname="Depth" filename="C:\workspace\vvvv\RealSense\girlpower\Depth.v4p">
-   <BOUNDS type="Window" left="0" top="450" width="11070" height="12900">
+   <PATCH nodename="C:\workspace\vvvv\RealSense\girlpower\depth.v4p" systemname="depth" filename="C:\workspace\vvvv\RealSense\girlpower\depth.v4p">
+   <BOUNDS type="Window" left="0" top="450" width="11070" height="4650">
    </BOUNDS>
    <NODE systemname="Renderer (TTY)" nodename="Renderer (TTY)" componentmode="InAWindow" id="3">
    <BOUNDS type="Node" left="2430" top="900" width="100" height="100">
@@ -57,7 +57,7 @@
    <PACK Name="addonpack" Version="34.1.0">
    </PACK>
    <NODE systemname="FullscreenQuad (DX11.Layer)" filename="%VVVV%\packs\dx11\nodes\modules\FullscreenQuad (DX11.Layer).v4p" nodename="FullscreenQuad (DX11.Layer)" componentmode="Hidden" id="9">
-   <BOUNDS type="Node" left="4530" top="4455" width="100" height="100">
+   <BOUNDS type="Node" left="4500" top="2235" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Texture" visible="1" slicecount="1" values="||">
    </PIN>
@@ -65,9 +65,9 @@
    </PIN>
    </NODE>
    <NODE systemname="Renderer (DX11)" filename="%VVVV%\packs\dx11\nodes\plugins\VVVV.DX11.Nodes.dll" nodename="Renderer (DX11)" componentmode="InAWindow" id="10">
-   <BOUNDS type="Node" left="4350" top="5310" width="100" height="100">
+   <BOUNDS type="Node" left="4320" top="3090" width="100" height="100">
    </BOUNDS>
-   <BOUNDS type="Box" left="4350" top="5310" width="6000" height="4500">
+   <BOUNDS type="Box" left="4320" top="3090" width="6000" height="4500">
    </BOUNDS>
    <BOUNDS type="Window" left="11190" top="5505" width="6240" height="5085">
    </BOUNDS>
@@ -77,7 +77,7 @@
    <LINK srcnodeid="9" srcpinname="Layer" dstnodeid="10" dstpinname="Layers">
    </LINK>
    <NODE systemname="Depth (RealSense Intel)" filename="..\plugins\RealSense.Nodes\bin\x64\Debug\RealSense.Nodes.dll" nodename="Depth (RealSense Intel)" componentmode="Hidden" id="13">
-   <BOUNDS type="Node" left="4935" top="3390" width="100" height="100">
+   <BOUNDS type="Node" left="4905" top="1170" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Enabled" visible="1">
    </PIN>
@@ -85,9 +85,9 @@
    <LINK srcnodeid="13" srcpinname="Texture Out" dstnodeid="9" dstpinname="Texture">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="14" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="4920" top="2475" width="480" height="480">
+   <BOUNDS type="Box" left="4890" top="255" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="4920" top="2475" width="0" height="0">
+   <BOUNDS type="Node" left="4890" top="255" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
    </PIN>

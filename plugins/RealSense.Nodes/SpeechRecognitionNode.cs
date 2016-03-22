@@ -5,14 +5,6 @@ using System.ComponentModel.Composition;
 using VVVV.PluginInterfaces.V1;
 using VVVV.PluginInterfaces.V2;
 
-using VVVV.DX11;
-using VVVV.Utils.VMath;
-
-using SlimDX.Direct3D11;
-
-using FeralTic.DX11.Resources;
-using FeralTic.DX11;
-
 using VVVV.Core.Logging;
 using System.Collections;
 using System.Collections.Generic;
@@ -22,7 +14,7 @@ using System.Collections.Generic;
 namespace RealSense.Nodes
 {
     [PluginInfo(Name = "SpeechRecognition", Category = "RealSense", Version = "Intel", Help = "RealSense Speech Recognition.", Tags = "RealSense, DX11, texture", Author = "aoi")]
-    public class SpeechRecognitionNode : BaseNode, IPartImportsSatisfiedNotification
+    public class SpeechRecognitionNode : IPluginEvaluate, IDisposable, IPartImportsSatisfiedNotification
     {
         private PXCMAudioSource audioSource;
         private PXCMSpeechRecognition recognition;
@@ -36,178 +28,93 @@ namespace RealSense.Nodes
         [Output("Recognition Data", IsSingle = true, DefaultString = "")]
         protected ISpread<string> FOutRecognitionData;
 
-        private List<PXCMAudioSource.DeviceInfo> deviceInfos;
+        [Input("Enabled", IsSingle = true, DefaultValue = 0)]
+        protected ISpread<bool> FInEnabled;
+
+        [Import()]
+        protected ILogger FLogger;
+
         private List<PXCMSession.ImplDesc> descs;
+        private List<PXCMAudioSource.DeviceInfo> deviceInfos;
         private List<PXCMSpeechRecognition.ProfileInfo> profileInfos;
 
-        private void init()
+        private bool initialized = false;
+        private bool initializedLanguage = false;
+
+        private PXCMSession session;
+        private PXCMSenseManager senseManager;
+        private PXCMCapture.Device device;
+
+        public void Evaluate(int SpreadMax)
         {
-            // 初期化
-            deviceInfos = new List<PXCMAudioSource.DeviceInfo>();
-            descs = new List<PXCMSession.ImplDesc>();
-            profileInfos = new List<PXCMSpeechRecognition.ProfileInfo>();
-
-            this.GetSessionAndSenseManager();
-
-            pxcmStatus sts = pxcmStatus.PXCM_STATUS_NO_ERROR;
-
-            this.audioSource = this.session.CreateAudioSource();
-            if (this.audioSource == null)
-            {
-                throw new Exception("音声入力デバイスの作成に失敗しました");
-            }
-
-            // 音声入力デバイスを列挙する
-            // 使用可能なデバイスをスキャンする
-            this.audioSource.ScanDevices();
-
-            int deviceNum = this.audioSource.QueryDeviceNum();
-            string[] deviceNames = new string[deviceNum];
-            for (int i = 0; i < deviceNum; ++i)
-            {
-                PXCMAudioSource.DeviceInfo tmpDviceInfo;
-                sts = this.audioSource.QueryDeviceInfo(i, out tmpDviceInfo);
-                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-                {
-                    throw new Exception("デバイス情報の取得に失敗しました");
-                }
-
-                FLogger.Log(LogType.Debug, "デバイス情報: " + tmpDviceInfo.name);
-                deviceNames[i] = tmpDviceInfo.name;
-                deviceInfos.Add(tmpDviceInfo);
-            }
             
-            EnumManager.UpdateEnum("AudioDevice", deviceNames[0], deviceNames);
 
-            this.audioSource.Dispose();
-
-
-            PXCMSession.ImplDesc inDesc = new PXCMSession.ImplDesc();
-            inDesc.cuids[0] = PXCMSpeechRecognition.CUID;
-
-            for (int i = 0; ; ++i)
+            if (this.initialized && !FInEnabled[0])
             {
-                // 音声認識エンジンを取得する
-                PXCMSession.ImplDesc outDesc = null;
-                sts = this.session.QueryImpl(inDesc, i, out outDesc);
-                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                this.Uninitialize();
+            }
+
+            if (!initializedLanguage)
+            {
+                this.GetLanguages();
+                return;
+            }
+
+            if (!FInEnabled[0]) { return; }
+
+            if (!this.initialized)
+            {
+                try
                 {
-                    break;
+                    this.Initialize();
                 }
-
-                FLogger.Log(LogType.Debug, "音声認識エンジン: " + outDesc.friendlyName);
-                descs.Add(outDesc);
-            }
-
-            // 対応言語を列挙する
-            PXCMSpeechRecognition rec;
-            PXCMSession.ImplDesc d = new PXCMSession.ImplDesc();
-            d.cuids[0] = PXCMSpeechRecognition.CUID;
-            d.iuid = descs[0].iuid;
-            sts = this.session.CreateImpl<PXCMSpeechRecognition>(d, out rec);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception("対応言語の設定に失敗しました ");
-            }
-
-            List<string> languages = new List<string>();
-
-            for (int i = 0; ; ++i)
-            {
-                // 音声認識エンジンが持っているプロファイルを取得する
-                PXCMSpeechRecognition.ProfileInfo pinfo;
-                sts = rec.QueryProfile(i, out pinfo);
-                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                catch (Exception e)
                 {
-                    break;
+                    FLogger.Log(LogType.Error, e.Message + e.StackTrace);
+                    this.Uninitialize();
                 }
-
-                // 対応言語を表示する
-                FLogger.Log(LogType.Debug, "対応言語: " + pinfo.language);
-                languages.Add(pinfo.language.ToString());
-                // 日本語のエンジンを使う
-                profileInfos.Add(pinfo);
-            }
-            EnumManager.UpdateEnum("Language", languages[0], languages.ToArray());
-
-            rec.Dispose();
-
-            if (profileInfos.Count == 0)
-            {
-                throw new Exception("音声認識エンジンが見つかりませんでした");
             }
         }
 
-        protected override void Initialize()
+        private void Initialize()
         {
             this.GetSessionAndSenseManager();
-            //this.EnableColorStream();
-            //this.SenseManagerInit();
-            //this.GetDevice();
-            //this.SetMirrorMode();
 
-            // 音声認識を初期化する
             this.audioSource = this.session.CreateAudioSource();
-            if (this.audioSource == null)
-            {
-                throw new Exception("音声入力デバイスの作成に失敗しました");
-            }
-            this.audioSource.SetVolume(0.2f);
 
-            pxcmStatus sts = pxcmStatus.PXCM_STATUS_NO_ERROR;
+            pxcmStatus sts = this.session.CreateImpl<PXCMSpeechRecognition>(this.descs[0], out this.recognition);
+            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception("音声認識モジュールの取得に失敗しました ");
+            }
 
             // 音声入力デバイスを設定する
-            PXCMAudioSource.DeviceInfo deviceInfo = null;
-            foreach (PXCMAudioSource.DeviceInfo d in this.deviceInfos)
+            //PXCMAudioSource.DeviceInfo dinfo = (PXCMAudioSource.DeviceInfo)deviceInfos[FInAudioDevice[0]];
+            //FLogger.Log(LogType.Debug, dinfo.name);
+            //this.audioSource.SetDevice(dinfo);
+            if (this.audioSource == null)
             {
-                if (d.name.Equals(FInAudioDevice[0]))
+                FLogger.Log(LogType.Debug, "audio source is null.");
+            }
+            for (int i = 0; i < deviceInfos.Count; i++)
+            {
+                PXCMAudioSource.DeviceInfo dinfo = deviceInfos[i];
+                if (dinfo.name.Equals(FInAudioDevice[0]))
                 {
-                    deviceInfo = d;
+                    this.audioSource.SetDevice(dinfo);
                 }
             }
-            if (deviceInfo == null)
-            {
-                throw new Exception("音声入力デバイスの設定に失敗しました");
-            }
-            FLogger.Log(LogType.Debug, deviceInfo.name);
-            sts = this.audioSource.SetDevice(deviceInfo);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception("音声入力デバイスの設定に失敗しました");
-            }
 
-            // 音声認識エンジンオブジェクトを作成する
-            FLogger.Log(LogType.Debug, "set " + descs[0].friendlyName);
-            //sts = this.session.CreateImpl<PXCMSpeechRecognition>(descs[0], out this.recognition);
-            sts = this.session.CreateImpl<PXCMSpeechRecognition>(out this.recognition);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            // 言語を設定する
+            for (int i = 0; i < profileInfos.Count; i++ )
             {
-                throw new Exception("音声認識エンジンオブジェクトの作成に失敗しました");
-            }
-
-            // 使用する言語を設定する
-            PXCMSpeechRecognition.ProfileInfo profileInfo = null;
-            foreach (PXCMSpeechRecognition.ProfileInfo p in profileInfos)
-            {
-                if (p.language.ToString().Equals(FInLanguage[0]))
+                PXCMSpeechRecognition.ProfileInfo pinfo = profileInfos[i];
+                if (pinfo.language.ToString().Equals(FInLanguage[0]))
                 {
-                    profileInfo = p;
+                    this.recognition.SetProfile(pinfo);
                 }
             }
-            if (profileInfo == null)
-            {
-                throw new Exception("音声認識エンジンオブジェクトの設定に失敗しました");
-            }
 
-
-            FLogger.Log(LogType.Debug, "set " + profileInfo.language);
-            sts = this.recognition.SetProfile(profileInfo);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception("音声認識エンジンオブジェクトの設定に失敗しました");
-            }
-
-            //this.recognition.AddVocabToDictation(PXCMSpeechRecognition.VocabFileType.VFT_LIST, "");
             // ディクテーションモードを設定する
             sts = this.recognition.SetDictation();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
@@ -229,42 +136,175 @@ namespace RealSense.Nodes
             this.initialized = true;
         }
 
+        private void GetSessionAndSenseManager()
+        {
+            if (this.senseManager != null) { return; }
+            this.senseManager = PXCMSenseManager.CreateInstance();
+            if (this.senseManager == null)
+            {
+                throw new Exception("マネージャを作成できませんでした");
+            }
+
+            this.session = this.senseManager.session;
+        }
+
         private void OnRecognition(PXCMSpeechRecognition.RecognitionData data)
         {
+            if (data == null || data.scores == null || data.scores.Length == 0)
+            {
+                return;
+            }
+
             FOutRecognitionData.SliceCount = 1;
             FOutRecognitionData[0] = data.scores[0].sentence;
         }
 
-        protected override void UpdateFrame()
-        {
-        }
-
-        protected override byte[] GetImageBuffer()
-        {
-            return null;
-        }
-
-        protected override void Uninitialize()
-        {
-            if (this.recognition != null)
-            {
-                this.recognition.Dispose();
-                this.recognition = null;
-            }
-            
-            if (this.audioSource != null)
-            {
-                this.audioSource.Dispose();
-                this.audioSource = null;
-            }
-
-            
-            base.Uninitialize();
-        }
-
         public void OnImportsSatisfied()
         {
-            this.init();
+            // 初期化
+            this.descs = new List<PXCMSession.ImplDesc>();
+            
+            this.GetSessionAndSenseManager();
+
+            pxcmStatus sts = pxcmStatus.PXCM_STATUS_NO_ERROR;
+
+            PXCMAudioSource audio = this.session.CreateAudioSource();
+            if (audio == null)
+            {
+                throw new Exception("音声入力デバイスの作成に失敗しました");
+            }
+
+            // 音声入力デバイスを列挙する
+            // 使用可能なデバイスをスキャンする
+            this.deviceInfos = new List<PXCMAudioSource.DeviceInfo>();
+            audio.ScanDevices();
+
+            int deviceNum = audio.QueryDeviceNum();
+            string[] deviceNames = new string[deviceNum];
+            for (int i = 0; i < deviceNum; ++i)
+            {
+                PXCMAudioSource.DeviceInfo tmpDeviceInfo;
+                sts = audio.QueryDeviceInfo(i, out tmpDeviceInfo);
+                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                {
+                    throw new Exception("デバイス情報の取得に失敗しました");
+                }
+
+                FLogger.Log(LogType.Debug, "デバイス情報: " + tmpDeviceInfo.name);
+                deviceNames[i] = tmpDeviceInfo.name;
+                this.deviceInfos.Add(tmpDeviceInfo);
+            }
+
+            EnumManager.UpdateEnum("AudioDevice", deviceNames[0], deviceNames);
+            audio.Dispose();
+
+
+            PXCMSession.ImplDesc inDesc = new PXCMSession.ImplDesc();
+            inDesc.cuids[0] = PXCMSpeechRecognition.CUID;
+
+            for (int i = 0; ; ++i)
+            {
+                // 音声認識エンジンを取得する
+                PXCMSession.ImplDesc outDesc = null;
+                sts = this.session.QueryImpl(inDesc, i, out outDesc);
+                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                {
+                    break;
+                }
+
+                FLogger.Log(LogType.Debug, "音声認識エンジン: " + outDesc.friendlyName);
+                this.descs.Add(outDesc);
+            }
+        }
+
+        private void GetLanguages()
+        {
+
+            if (this.descs == null || this.descs.Count == 0) { return; }
+
+            PXCMSpeechRecognition sr;
+            // 対応言語を列挙する
+            pxcmStatus sts = this.session.CreateImpl<PXCMSpeechRecognition>(this.descs[0], out sr);
+            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception("対応言語の設定に失敗しました ");
+            }
+
+            List<string> languages = new List<string>();
+            this.profileInfos = new List<PXCMSpeechRecognition.ProfileInfo>();
+            for (int i = 0; ; ++i)
+            {
+                // 音声認識エンジンが持っているプロファイルを取得する
+                PXCMSpeechRecognition.ProfileInfo pinfo;
+                sts = sr.QueryProfile(i, out pinfo);
+                if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+                {
+                    break;
+                }
+
+                // 対応言語を表示する
+                FLogger.Log(LogType.Debug, "対応言語: " + pinfo.language);
+                languages.Add(pinfo.language.ToString());
+                profileInfos.Add(pinfo);
+            }
+            EnumManager.UpdateEnum("Language", languages[0], languages.ToArray());
+
+            if (profileInfos.Count == 0)
+            {
+                throw new Exception("音声認識エンジンが見つかりませんでした");
+            }
+
+            sr.Dispose();
+
+            this.initializedLanguage = true;
+        }
+
+        protected void Uninitialize()
+        {
+            try
+            {
+                if (this.device != null)
+                {
+                    this.device.Dispose();
+                    this.device = null;
+                }
+
+                if (this.recognition != null)
+                {
+                    this.recognition.Dispose();
+                    this.recognition = null;
+                }
+
+                if (this.audioSource != null)
+                {
+                    this.audioSource.Dispose();
+                    this.audioSource = null;
+                }
+
+                if (this.senseManager != null)
+                {
+                    this.senseManager.Close();
+                    this.senseManager.Dispose();
+                    this.senseManager = null;
+                }
+
+                if (this.session != null)
+                {
+                    this.session.Dispose();
+                    this.session = null;
+                }
+            }
+            catch( Exception e)
+            {
+                FLogger.Log(LogType.Debug, e.Message, e.StackTrace);
+            }
+
+            this.initialized = false;
+        }
+
+        public void Dispose()
+        {
+            this.Uninitialize();
         }
     }
 }

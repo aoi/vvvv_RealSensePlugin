@@ -1,6 +1,6 @@
 <!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta34.2.dtd" >
-   <PATCH nodename="C:\workspace\vvvv\RealSense\girlpower\3D_scan.v4p" systemname="3D_scan" filename="C:\workspace\vvvv\RealSense\girlpower\3D_scan.v4p" scrollx="0" scrolly="-141">
-   <BOUNDS type="Window" left="0" top="450" width="11070" height="12900">
+   <PATCH nodename="C:\workspace\vvvv\RealSense\girlpower\3D_scan.v4p" systemname="3D_scan" filename="C:\workspace\vvvv\RealSense\girlpower\3D_scan.v4p" scrollx="0" scrolly="-360">
+   <BOUNDS type="Window" left="0" top="405" width="11070" height="6480">
    </BOUNDS>
    <NODE systemname="Renderer (TTY)" nodename="Renderer (TTY)" componentmode="InAWindow" id="3">
    <BOUNDS type="Node" left="2430" top="900" width="100" height="100">
@@ -57,7 +57,7 @@
    <PACK Name="addonpack" Version="34.1.0">
    </PACK>
    <NODE systemname="3DScan (RealSense Intel)" filename="..\plugins\RealSense.Nodes\bin\x64\Debug\RealSense.Nodes.dll" nodename="3DScan (RealSense Intel)" componentmode="Hidden" id="7">
-   <BOUNDS type="Node" left="4950" top="3420" width="100" height="100">
+   <BOUNDS type="Node" left="4950" top="3720" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Enabled" visible="1">
    </PIN>
@@ -71,11 +71,15 @@
    </PIN>
    <PIN pinname="ReconstructionOption" visible="1">
    </PIN>
+   <PIN pinname="MaxTriangles" visible="1">
+   </PIN>
+   <PIN pinname="MaxVertices" visible="1">
+   </PIN>
    </NODE>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="8" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="6090" top="2595" width="480" height="480">
+   <BOUNDS type="Box" left="8970" top="2520" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="6090" top="2595" width="0" height="0">
+   <BOUNDS type="Node" left="8970" top="2520" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
    </PIN>
@@ -88,6 +92,8 @@
    <PIN pinname="Behavior" slicecount="1" values="Toggle">
    </PIN>
    <PIN pinname="X Input Value" slicecount="1" values="0">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="Enabled">
    </PIN>
    </NODE>
    <LINK srcnodeid="8" srcpinname="Y Output Value" dstnodeid="7" dstpinname="Enabled">
@@ -115,9 +121,9 @@
    <LINK srcnodeid="9" srcpinname="Layer" dstnodeid="10" dstpinname="Layers">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="11" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="5325" top="2580" width="480" height="480">
+   <BOUNDS type="Box" left="7425" top="2520" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="5325" top="2580" width="0" height="0">
+   <BOUNDS type="Node" left="7425" top="2520" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
    </PIN>
@@ -127,7 +133,9 @@
    </PIN>
    <PIN pinname="Value Type" slicecount="1" values="Boolean">
    </PIN>
-   <PIN pinname="Behavior" slicecount="1" values="Press">
+   <PIN pinname="Behavior" slicecount="1" values="Bang">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="Reconstruct">
    </PIN>
    </NODE>
    <LINK srcnodeid="11" srcpinname="Y Output Value" dstnodeid="7" dstpinname="Reconstruct">
@@ -145,9 +153,9 @@
    <LINK srcnodeid="12" srcpinname="Output Enum" dstnodeid="7" dstpinname="ScanningMode">
    </LINK>
    <NODE nodename="IOBox (Enumerations)" componentmode="InABox" id="13" systemname="IOBox (Enumerations)">
-   <BOUNDS type="Box" left="5160" top="1905" width="1590" height="270">
+   <BOUNDS type="Box" left="5130" top="1905" width="1590" height="270">
    </BOUNDS>
-   <BOUNDS type="Node" left="5160" top="1905" width="0" height="0">
+   <BOUNDS type="Node" left="5130" top="1905" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Input Enum" slicecount="1" visible="1" values="NONE">
    </PIN>
@@ -155,5 +163,69 @@
    </PIN>
    </NODE>
    <LINK srcnodeid="13" srcpinname="Output Enum" dstnodeid="7" dstpinname="ReconstructionOption">
+   </LINK>
+   <NODE systemname="Boost (VVVV)" nodename="Boost (VVVV)" componentmode="Hidden" id="-7">
+   <BOUNDS type="Node" left="330" top="2115" width="100" height="100">
+   </BOUNDS>
+   <PIN pinname="Enabled" visible="1">
+   </PIN>
+   </NODE>
+   <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="14" systemname="IOBox (Value Advanced)">
+   <BOUNDS type="Box" left="330" top="1470" width="480" height="480">
+   </BOUNDS>
+   <BOUNDS type="Node" left="330" top="1470" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Y Input Value" slicecount="1" visible="1" values="1">
+   </PIN>
+   <PIN pinname="Units" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Precision" slicecount="1" values="4">
+   </PIN>
+   <PIN pinname="Value Type" slicecount="1" values="Boolean">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="Enabled">
+   </PIN>
+   <PIN pinname="Behavior" slicecount="1" values="Toggle">
+   </PIN>
+   <PIN pinname="X Input Value" slicecount="1" values="1">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="14" srcpinname="Y Output Value" dstnodeid="-7" dstpinname="Enabled">
+   </LINK>
+   <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="15" systemname="IOBox (Value Advanced)">
+   <BOUNDS type="Box" left="5295" top="2520" width="795" height="240">
+   </BOUNDS>
+   <BOUNDS type="Node" left="5295" top="2520" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
+   </PIN>
+   <PIN pinname="Units" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Precision" slicecount="1" values="4">
+   </PIN>
+   <PIN pinname="Value Type" slicecount="1" values="Integer">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="MaxTriangles">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="15" srcpinname="Y Output Value" dstnodeid="7" dstpinname="MaxTriangles">
+   </LINK>
+   <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="16" systemname="IOBox (Value Advanced)">
+   <BOUNDS type="Box" left="6405" top="2535" width="795" height="240">
+   </BOUNDS>
+   <BOUNDS type="Node" left="6405" top="2535" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
+   </PIN>
+   <PIN pinname="Units" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Precision" slicecount="1" values="4">
+   </PIN>
+   <PIN pinname="Value Type" slicecount="1" values="Integer">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="MaxVertices">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="16" srcpinname="Y Output Value" dstnodeid="7" dstpinname="MaxVertices">
    </LINK>
    </PATCH>

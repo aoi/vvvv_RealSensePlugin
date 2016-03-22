@@ -31,23 +31,51 @@ namespace RealSense.Nodes
         [Input("ReconstructionOption", IsSingle = true, DefaultEnumEntry = "NONE")]
         private ISpread<PXCM3DScan.ReconstructionOption> FInReconstructionOption;
 
+        [Input("MaxTriangles", IsSingle = true, DefaultValue = 100)]
+        private ISpread<int> FInMaxTriangles;
+
+        [Input("MaxVertices", IsSingle = true, DefaultValue = 100)]
+        private ISpread<int> FInMaxVertices;
 
         [Input("Reconstruct", IsSingle = true, DefaultBoolean = false)]
         private ISpread<bool> FInReconstruct;
 
+        protected override void AdditionalEvaluate(int SpreadMax)
+        {
+            FLogger.Log(LogType.Debug, "Evaluate");
+
+            if (this.scanner != null)
+            {
+                var scanMode = this.scanner.QueryConfiguration().mode;
+                var area = this.scanner.QueryArea();
+                var bBox = this.scanner.QueryBoundingBox();
+                FLogger.Log(LogType.Debug, "BoundingBox x: " + bBox.x.ToString());
+            }
+
+            if (this.scanner.IsScanning())
+            {
+                FLogger.Log(LogType.Debug, "Scanning.");
+            }
+            else
+            {
+                FLogger.Log(LogType.Debug, "Not Scanning.");
+            }
+        }
+
         protected override void Initialize()
         {
+            this.width = 320;
+            this.height = 240;
+
             this.GetSessionAndSenseManager();
 
             var sts = this.senseManager.Enable3DScan();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました");
+                throw new Exception("3Dスキャンの有効化に失敗しました");
             }
 
             this.InitSenseManager();
-            this.GetDevice();
-            this.SetMirrorMode();
 
             this.Initialize3DScan();
 
@@ -67,8 +95,8 @@ namespace RealSense.Nodes
             config.startScan = true;
             config.mode = FInScanningMode[0];
             config.options = FInReconstructionOption[0];
-            config.maxTriangles = 1000;
-            config.maxVertices = 10000;
+            config.maxTriangles = FInMaxTriangles[0];
+            config.maxVertices = FInMaxVertices[0];
 
             pxcmStatus sts = this.scanner.SetConfiguration(config);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
@@ -82,7 +110,7 @@ namespace RealSense.Nodes
         {
             if (this.scanner.IsScanning())
             {
-                string desktop =  System.Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                string desktop = System.Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
                 var time = DateTime.Now.ToString("hhmmss", System.Globalization.CultureInfo.CurrentUICulture.DateTimeFormat);
                 var fileName = desktop + "\\" + string.Format("model-{0}.{1}", time, PXCM3DScan.FileFormatToString(this.fileFormat));
                 FLogger.Log(LogType.Debug, "fileName: " + fileName);
@@ -101,7 +129,8 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.AcquireFrame(false);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                return;
+                FLogger.Log(LogType.Debug, "フレームが取得できませんでした。(return)");
+                //return;
             }
 
             if (this.scanner != null)
@@ -109,12 +138,13 @@ namespace RealSense.Nodes
                 this.image = this.scanner.AcquirePreviewImage();
             }
 
+            this.senseManager.ReleaseFrame();
+
             if (FInReconstruct[0])
             {
                 this.Reconstruct();
             }
-
-            this.senseManager.ReleaseFrame();
+            
         }
 
         protected override byte[] GetImageBuffer()
@@ -135,9 +165,13 @@ namespace RealSense.Nodes
 
             // バイト配列に変換する
             var info = this.image.QueryInfo();
-            FLogger.Log(LogType.Debug, info.width.ToString());
+            FLogger.Log(LogType.Debug, "Width: " + this.image.info.width.ToString());
+            FLogger.Log(LogType.Debug, "Height: " + this.image.info.height.ToString());
 
-            var length = data.pitches[0] * info.height;
+            this.width = this.image.info.width;
+            this.height = this.image.info.height;
+            
+            var length = this.width * this.height * data.pitches[0];
 
             var buffer = data.ToByteArray(0, length);
 
@@ -152,6 +186,7 @@ namespace RealSense.Nodes
             if (this.scanner != null)
             {
                 this.scanner.Dispose();
+                this.scanner = null;
             }
 
             base.Uninitialize();

@@ -21,8 +21,8 @@ namespace RealSense.Nodes
     public abstract class BaseNode : IPluginEvaluate, IDX11ResourceProvider, IDisposable
     {
 
-        protected const int WIDTH = 640;
-        protected const int HEIGHT = 480;
+        protected int width = 640;
+        protected int height = 480;
         protected const int FPS = 30;
         protected const int BYTE_PER_PIXEL = 4;
 
@@ -37,7 +37,6 @@ namespace RealSense.Nodes
         protected PXCMSession session;
         protected PXCMSenseManager senseManager;
         protected PXCMCapture.Device device;
-
         protected PXCMImage image;
 
         [Import()]
@@ -94,11 +93,17 @@ namespace RealSense.Nodes
 
         protected abstract void Initialize();
 
+        protected virtual void AdditionalEvaluate(int SpreadMax)
+        {
+
+        }
+
         protected virtual void Uninitialize()
         {
             if (this.image != null)
             {
                 this.image.Dispose();
+                this.image = null;
             }
 
             if (this.device != null)
@@ -129,16 +134,13 @@ namespace RealSense.Nodes
 
         protected void GetSessionAndSenseManager()
         {
-            this.session = PXCMSession.CreateInstance();
-            if (this.session == null)
-            {
-                throw new Exception("セッションを作成できませんでした");
-            }
-            this.senseManager = this.session.CreateSenseManager();
+            this.senseManager = PXCMSenseManager.CreateInstance();
             if (this.senseManager == null)
             {
                 throw new Exception("マネージャを作成できませんでした");
             }
+
+            this.session = this.senseManager.session;
         }
 
         protected void GetDevice()
@@ -156,7 +158,7 @@ namespace RealSense.Nodes
 
         protected void EnableColorStream()
         {
-            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, WIDTH, HEIGHT, FPS);
+            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, width, height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("カラーストリームの有効化に失敗しました");
@@ -165,7 +167,7 @@ namespace RealSense.Nodes
 
         protected void EnableDepthStream()
         {
-            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, WIDTH, HEIGHT, FPS);
+            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, width, height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("Depthストリームの有効化に失敗しました");
@@ -174,6 +176,10 @@ namespace RealSense.Nodes
 
         protected void InitSenseManager()
         {
+            if (this.senseManager == null) { return; }
+
+            if (!this.senseManager.IsConnected()) { return; }
+
             pxcmStatus sts = this.senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
@@ -192,7 +198,7 @@ namespace RealSense.Nodes
 
         public void Update(IPluginIO pin, DX11RenderContext context)
         {
-            if (!this.initialized) { return; }
+            if (!this.FInEnabled[0] || !this.initialized) { return; }
 
             if (this.FTextureOutput.SliceCount == 0) { return; }
 
@@ -204,17 +210,17 @@ namespace RealSense.Nodes
             {
                 desc = this.FTextureOutput[0][context].Resource.Description;
 
-                if (desc.Width != WIDTH || desc.Height != HEIGHT || desc.Format != fmt)
+                if (desc.Width != width || desc.Height != height || desc.Format != fmt)
                 {
                     this.FTextureOutput[0].Dispose(context);
-                    DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+                    DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, width, height, fmt);
 
                     this.FTextureOutput[0][context] = t2D;
                 }
             }
             else
             {
-                this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, WIDTH, HEIGHT, fmt);
+                this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, width, height, fmt);
 #if DEBUG
                 this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
 #endif
@@ -233,7 +239,6 @@ namespace RealSense.Nodes
 
         public void Dispose()
         {
-            FLogger.Log(LogType.Debug, "Dispose");
             if (this.FTextureOutput.SliceCount > 0)
             {
                 if (this.FTextureOutput[0] != null)
@@ -248,7 +253,6 @@ namespace RealSense.Nodes
 
         public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
         {
-            FLogger.Log(LogType.Debug, "Destory");
             this.FTextureOutput[0].Dispose(context);
         }
     }

@@ -88,7 +88,7 @@ namespace RealSense.Nodes
         {
             if (this.image == null) { return null; }
 
-            byte[] imageBuffer = new byte[WIDTH * HEIGHT * BYTE_PER_PIXEL];
+            byte[] imageBuffer = new byte[width * height * BYTE_PER_PIXEL];
 
             // データを取得する
             PXCMImage.ImageData data;
