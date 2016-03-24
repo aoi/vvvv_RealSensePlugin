@@ -40,28 +40,6 @@ namespace RealSense.Nodes
         [Input("Reconstruct", IsSingle = true, DefaultBoolean = false)]
         private ISpread<bool> FInReconstruct;
 
-        protected override void AdditionalEvaluate(int SpreadMax)
-        {
-            FLogger.Log(LogType.Debug, "Evaluate");
-
-            if (this.scanner != null)
-            {
-                var scanMode = this.scanner.QueryConfiguration().mode;
-                var area = this.scanner.QueryArea();
-                var bBox = this.scanner.QueryBoundingBox();
-                FLogger.Log(LogType.Debug, "BoundingBox x: " + bBox.x.ToString());
-            }
-
-            if (this.scanner.IsScanning())
-            {
-                FLogger.Log(LogType.Debug, "Scanning.");
-            }
-            else
-            {
-                FLogger.Log(LogType.Debug, "Not Scanning.");
-            }
-        }
-
         protected override void Initialize()
         {
             this.width = 320;
@@ -85,7 +63,7 @@ namespace RealSense.Nodes
         private void Initialize3DScan()
         {
             // スキャナーを取得する
-            this.scanner = senseManager.Query3DScan();
+            this.scanner = this.senseManager.Query3DScan();
             if (this.scanner == null)
             {
                 throw new Exception("スキャナーの取得に失敗しました");
@@ -143,6 +121,25 @@ namespace RealSense.Nodes
             if (FInReconstruct[0])
             {
                 this.Reconstruct();
+            }
+
+
+
+            if (this.scanner != null)
+            {
+                var scanMode = this.scanner.QueryConfiguration().mode;
+                var area = this.scanner.QueryArea();
+                var bBox = this.scanner.QueryBoundingBox();
+                FLogger.Log(LogType.Debug, "BoundingBox x: " + bBox.x.ToString());
+            }
+
+            if (this.scanner.IsScanning())
+            {
+                FLogger.Log(LogType.Debug, "Scanning.");
+            }
+            else
+            {
+                FLogger.Log(LogType.Debug, "Not Scanning.");
             }
             
         }

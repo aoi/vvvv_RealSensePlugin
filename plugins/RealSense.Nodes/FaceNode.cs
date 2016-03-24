@@ -497,8 +497,6 @@ namespace RealSense.Nodes
                 this.faceModule = null;
             }
 
-            
-
             if (this.device != null)
             {
                 this.device.Dispose();

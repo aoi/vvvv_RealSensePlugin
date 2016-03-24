@@ -26,6 +26,9 @@ namespace RealSense.Nodes
         protected const int FPS = 30;
         protected const int BYTE_PER_PIXEL = 4;
 
+        [Input("Resolution", EnumName = "Resolution", IsSingle = true, DefaultEnumEntry = "640x480")]
+        private ISpread<EnumEntry> FInResolution;
+
         [Input("Enabled", IsSingle = true, DefaultValue = 0)]
         protected ISpread<bool> FInEnabled;
 
@@ -42,8 +45,15 @@ namespace RealSense.Nodes
         [Import()]
         protected ILogger FLogger;
 
+        public BaseNode()
+        {
+            string[] resolution = new string[9] { "320x240", "480x360", "628x468", "640x240", "640x360", "640x480", "960x540", "1280x720", "1920x1080" };
+            EnumManager.UpdateEnum("Resolution", resolution[5], resolution);
+        }
+
         public void Evaluate(int SpreadMax)
         {
+
             if (this.initialized && !FInEnabled[0])
             {
                 this.Uninitialize();
@@ -69,6 +79,10 @@ namespace RealSense.Nodes
             {
                 try
                 {
+                    string[] r = FInResolution[0].Name.ToString().Split('x');
+                    this.width = int.Parse(r[0]);
+                    this.height = int.Parse(r[1]);
+
                     this.Initialize();
                 }
                 catch (Exception e)
@@ -93,11 +107,6 @@ namespace RealSense.Nodes
 
         protected abstract void Initialize();
 
-        protected virtual void AdditionalEvaluate(int SpreadMax)
-        {
-
-        }
-
         protected virtual void Uninitialize()
         {
             if (this.image != null)
@@ -112,17 +121,17 @@ namespace RealSense.Nodes
                 this.device = null;
             }
 
+            if (this.session != null)
+            {
+                this.session.Dispose();
+                this.session = null;
+            }
+
             if (this.senseManager != null)
             {
                 this.senseManager.Close();
                 this.senseManager.Dispose();
                 this.senseManager = null;
-            }
-
-            if (this.session != null)
-            {
-                this.session.Dispose();
-                this.session = null;
             }
 
             this.initialized = false;
@@ -148,7 +157,6 @@ namespace RealSense.Nodes
             this.device = this.senseManager.QueryCaptureManager().QueryDevice();
             PXCMCapture.DeviceInfo dinfo;
             this.device.QueryDeviceInfo(out dinfo);
-            FLogger.Log(LogType.Debug, dinfo.model.ToString());
 
             if (this.device == null)
             {

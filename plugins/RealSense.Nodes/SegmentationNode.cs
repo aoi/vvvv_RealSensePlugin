@@ -26,20 +26,17 @@ namespace RealSense.Nodes
 
         protected override void Initialize()
         {
-            this.session = PXCMSession.CreateInstance();
-            if (this.session == null)
-            {
-                throw new Exception("セッションを作成できませんでした");
-            }
+            //this.GetSessionAndSenseManager();
 
-            this.senseManager = this.session.CreateSenseManager();
+            this.senseManager = PXCMSenseManager.CreateInstance();
             if (this.senseManager == null)
             {
                 throw new Exception("マネージャを作成できませんでした");
             }
 
-            this.EnableColorStream();
+            //this.EnableColorStream();
             //this.EnableDepthStream();
+
             pxcmStatus sts = this.senseManager.Enable3DSeg();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
@@ -135,7 +132,6 @@ namespace RealSense.Nodes
 
         protected override void Uninitialize()
         {
-            FLogger.Log(LogType.Debug, "child uninitialize");
             if (this.segmentation != null)
             {
                 this.segmentation.Dispose();
