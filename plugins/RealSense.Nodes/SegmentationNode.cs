@@ -26,16 +26,10 @@ namespace RealSense.Nodes
 
         protected override void Initialize()
         {
-            //this.GetSessionAndSenseManager();
 
-            this.senseManager = PXCMSenseManager.CreateInstance();
-            if (this.senseManager == null)
-            {
-                throw new Exception("マネージャを作成できませんでした");
-            }
+            this.GetSessionAndSenseManager();
 
-            //this.EnableColorStream();
-            //this.EnableDepthStream();
+            this.EnableColorStream();
 
             pxcmStatus sts = this.senseManager.Enable3DSeg();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)

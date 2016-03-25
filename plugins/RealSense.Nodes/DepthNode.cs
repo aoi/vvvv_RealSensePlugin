@@ -48,7 +48,7 @@ namespace RealSense.Nodes
         protected override void UpdateFrame()
         {
             // フレームを取得する
-            pxcmStatus ret = this.senseManager.AcquireFrame(false, 5000);
+            pxcmStatus ret = this.senseManager.AcquireFrame(false);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 if (ret == pxcmStatus.PXCM_STATUS_EXEC_ABORTED)

@@ -106,7 +106,6 @@
     <Compile Include="FaceNode.cs" />
     <Compile Include="HandNode.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resolution.cs" />
     <Compile Include="RGBNode.cs" />
     <Compile Include="SegmentationNode.cs" />
     <Compile Include="SpeechRecognitionNode.cs" />
