@@ -160,9 +160,14 @@ namespace RealSense.Nodes
             {
                 this.image = sample.color;
             }
-            else
+            else if (FInMode[0] == Mode.Depth)
             {
                 this.image = sample.depth;
+            }
+
+            if (this.image != null)
+            {
+                this.invalidate = true;
             }
 
             // 手のデータを更新する
@@ -214,6 +219,10 @@ namespace RealSense.Nodes
                     {
                         FLogger.Log(LogType.Debug, "手の画像の取得に失敗しました");
                         continue;
+                    }
+                    if (this.image != null)
+                    {
+                        this.invalidate = true;
                     }
 
                     // マスク画像を取得する

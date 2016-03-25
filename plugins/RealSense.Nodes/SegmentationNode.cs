@@ -71,6 +71,11 @@ namespace RealSense.Nodes
                 this.image = this.senseManager.QuerySample().color;
             }
 
+            if (this.image != null)
+            {
+                this.invalidate = true;
+            }
+
             // フレームを開放する
             this.senseManager.ReleaseFrame();
         }

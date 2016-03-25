@@ -42,6 +42,10 @@ namespace RealSense.Nodes
         protected PXCMCapture.Device device;
         protected PXCMImage image;
 
+        protected bool invalidate = true;
+        protected object lockObj = new object();
+        protected bool isResized = false;
+
         [Import()]
         protected ILogger FLogger;
 
@@ -53,7 +57,6 @@ namespace RealSense.Nodes
 
         public void Evaluate(int SpreadMax)
         {
-
             if (this.initialized && !FInEnabled[0])
             {
                 this.Uninitialize();
@@ -63,16 +66,17 @@ namespace RealSense.Nodes
 
             if (this.image == null)
             {
-                if (this.FTextureOutput.SliceCount == 1)
+                if (this.FTextureOutput[0] != null)
                 {
-                    if (this.FTextureOutput[0] != null) { this.FTextureOutput[0].Dispose(); }
-                    this.FTextureOutput.SliceCount = 0;
+                    this.FTextureOutput[0].Dispose();
                 }
             }
             else
             {
-                this.FTextureOutput.SliceCount = 1;
-                if (this.FTextureOutput[0] == null) { this.FTextureOutput[0] = new DX11Resource<DX11DynamicTexture2D>(); }
+                if (this.FTextureOutput[0] == null)
+                {
+                    this.FTextureOutput[0] = new DX11Resource<DX11DynamicTexture2D>();
+                }
             }
 
             if (!this.initialized)
@@ -107,36 +111,6 @@ namespace RealSense.Nodes
 
         protected abstract void Initialize();
 
-        protected virtual void Uninitialize()
-        {
-            if (this.image != null)
-            {
-                this.image.Dispose();
-                this.image = null;
-            }
-
-            if (this.device != null)
-            {
-                this.device.Dispose();
-                this.device = null;
-            }
-
-            if (this.session != null)
-            {
-                this.session.Dispose();
-                this.session = null;
-            }
-
-            if (this.senseManager != null)
-            {
-                this.senseManager.Close();
-                this.senseManager.Dispose();
-                this.senseManager = null;
-            }
-
-            this.initialized = false;
-        }
-
         protected abstract void UpdateFrame();
 
         protected abstract byte[] GetImageBuffer();
@@ -166,7 +140,7 @@ namespace RealSense.Nodes
 
         protected void EnableColorStream()
         {
-            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, width, height, FPS);
+            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("カラーストリームの有効化に失敗しました");
@@ -175,7 +149,7 @@ namespace RealSense.Nodes
 
         protected void EnableDepthStream()
         {
-            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, width, height, FPS);
+            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("Depthストリームの有効化に失敗しました");
@@ -206,43 +180,71 @@ namespace RealSense.Nodes
 
         public void Update(IPluginIO pin, DX11RenderContext context)
         {
-            if (!this.FInEnabled[0] || !this.initialized) { return; }
+            if (!this.FInEnabled[0] || !this.initialized || this.image == null) { return; }
 
-            if (this.FTextureOutput.SliceCount == 0) { return; }
+            if (this.FTextureOutput[0] == null) { return; }
 
             SlimDX.DXGI.Format fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
 
-            Texture2DDescription desc;
-
-            if (this.FTextureOutput[0].Contains(context))
+            if (!this.FTextureOutput[0].Contains(context))
             {
-                desc = this.FTextureOutput[0][context].Resource.Description;
-
-                if (desc.Width != width || desc.Height != height || desc.Format != fmt)
+                this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, this.width, this.height, fmt);
+            }
+            
+            if (this.invalidate)
+            {
+                lock (this.lockObj)
                 {
-                    this.FTextureOutput[0].Dispose(context);
-                    DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, width, height, fmt);
+                    
+                    var buffer = this.GetImageBuffer();
 
-                    this.FTextureOutput[0][context] = t2D;
+                    Texture2DDescription desc = this.FTextureOutput[0][context].Resource.Description;
+
+                    if (this.isResized || desc.Width != this.width || desc.Height != this.height || desc.Format != fmt) // resized
+                    {
+                        this.FTextureOutput[0].Dispose(context);
+                        this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, this.width, this.height, fmt);
+
+                    }
+
+                    if (buffer != null)
+                    {
+                        var t = this.FTextureOutput[0][context];
+                        t.WriteData(buffer);
+                        this.invalidate = false;
+                    }
                 }
             }
-            else
+        }
+
+        protected virtual void Uninitialize()
+        {
+            if (this.image != null)
             {
-                this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, width, height, fmt);
-#if DEBUG
-                this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
-#endif
+                this.image.Dispose();
+                this.image = null;
             }
 
-            desc = this.FTextureOutput[0][context].Resource.Description;
-
-            var t = this.FTextureOutput[0][context];
-
-            var buffer = this.GetImageBuffer();
-            if (buffer != null)
+            if (this.device != null)
             {
-                t.WriteData(buffer);
+                this.device.Dispose();
+                this.device = null;
             }
+
+            if (this.session != null)
+            {
+                this.session.Dispose();
+                this.session = null;
+            }
+
+            if (this.senseManager != null)
+            {
+                this.senseManager.Close();
+                this.senseManager.Dispose();
+                this.senseManager = null;
+            }
+
+            this.initialized = false;
         }
 
         public void Dispose()

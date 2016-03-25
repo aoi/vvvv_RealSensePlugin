@@ -51,7 +51,12 @@ namespace RealSense.Nodes
             if (sample != null)
             {
                 // 画像データを更新
-                image = sample.color;
+                this.image = sample.color;
+            }
+
+            if (this.image != null)
+            {
+                this.invalidate = true;
             }
 
             // フレームを開放する

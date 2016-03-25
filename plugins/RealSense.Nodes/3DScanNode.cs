@@ -1,6 +1,7 @@
 ﻿#region usings
 using System;
 using System.ComponentModel.Composition;
+using System.Threading.Tasks;
 
 using VVVV.PluginInterfaces.V1;
 using VVVV.PluginInterfaces.V2;
@@ -37,8 +38,18 @@ namespace RealSense.Nodes
         [Input("MaxVertices", IsSingle = true, DefaultValue = 100)]
         private ISpread<int> FInMaxVertices;
 
-        [Input("Reconstruct", IsSingle = true, DefaultBoolean = false)]
-        private ISpread<bool> FInReconstruct;
+        [Input("Scan", IsSingle = true, DefaultBoolean = false)]
+        private IDiffSpread<bool> FInScan;
+
+        //[Input("Reconstruct", IsSingle = true, DefaultBoolean = false)]
+        //private ISpread<bool> FInReconstruct;
+
+        [Output("Status", IsSingle = true, DefaultString = "")]
+        private ISpread<string> FOutStatus;
+
+        private int prevWidth = 0;
+        private int prevHeight = 0;
+
 
         protected override void Initialize()
         {
@@ -47,7 +58,7 @@ namespace RealSense.Nodes
 
             this.GetSessionAndSenseManager();
 
-            var sts = this.senseManager.Enable3DScan();
+            pxcmStatus sts = this.senseManager.Enable3DScan();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 throw new Exception("3Dスキャンの有効化に失敗しました");
@@ -68,6 +79,14 @@ namespace RealSense.Nodes
             {
                 throw new Exception("スキャナーの取得に失敗しました");
             }
+        }
+
+        private void StartScan()
+        {
+            if (this.scanner == null)
+            {
+                return;
+            }
 
             PXCM3DScan.Configuration config = new PXCM3DScan.Configuration();
             config.startScan = true;
@@ -82,6 +101,31 @@ namespace RealSense.Nodes
                 throw new Exception("スキャナーの設定に失敗しました");
             }
 
+        }
+
+        private void EndScan()
+        {
+            if (this.scanner == null)
+            {
+                return;
+            }
+
+            this.Reconstruct();
+
+            PXCM3DScan.Configuration config = new PXCM3DScan.Configuration();
+            config.startScan = false;
+            config.mode = FInScanningMode[0];
+            config.options = FInReconstructionOption[0];
+            config.maxTriangles = FInMaxTriangles[0];
+            config.maxVertices = FInMaxVertices[0];
+
+            pxcmStatus sts = this.scanner.SetConfiguration(config);
+            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            {
+                throw new Exception("スキャナーの設定に失敗しました");
+            }
+
+            this.Uninitialize();
         }
 
         private void Reconstruct()
@@ -101,45 +145,53 @@ namespace RealSense.Nodes
             }
         }
 
-
         protected override void UpdateFrame()
         {
-            pxcmStatus sts = this.senseManager.AcquireFrame(false);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
+            // フレームを取得する
+            pxcmStatus ret = this.senseManager.AcquireFrame(false);
+            if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                FLogger.Log(LogType.Debug, "フレームが取得できませんでした。(return)");
-                //return;
+                if (ret == pxcmStatus.PXCM_STATUS_EXEC_ABORTED)
+                {
+                    // do noting
+                }
+                else
+                {
+                    throw new Exception("フレームの取得に失敗しました: " + ret.ToString());
+                }
             }
 
             if (this.scanner != null)
             {
                 this.image = this.scanner.AcquirePreviewImage();
+                if (this.image != null)
+                {
+                    this.invalidate = true;
+                }
+
+                if (FInScan.IsChanged)
+                {
+                    if (FInScan[0])
+                    {
+                        this.StartScan();
+                    }
+                    else
+                    {
+                        this.EndScan();
+                    }
+                }
             }
 
             this.senseManager.ReleaseFrame();
 
-            if (FInReconstruct[0])
-            {
-                this.Reconstruct();
-            }
-
-
-
-            if (this.scanner != null)
-            {
-                var scanMode = this.scanner.QueryConfiguration().mode;
-                var area = this.scanner.QueryArea();
-                var bBox = this.scanner.QueryBoundingBox();
-                FLogger.Log(LogType.Debug, "BoundingBox x: " + bBox.x.ToString());
-            }
-
+            FOutStatus.SliceCount = 1;
             if (this.scanner.IsScanning())
             {
-                FLogger.Log(LogType.Debug, "Scanning.");
+                FOutStatus[0] = "Scanning";
             }
             else
             {
-                FLogger.Log(LogType.Debug, "Not Scanning.");
+                FOutStatus[0] = "Not Scanning";
             }
             
         }
@@ -162,13 +214,23 @@ namespace RealSense.Nodes
 
             // バイト配列に変換する
             var info = this.image.QueryInfo();
-            FLogger.Log(LogType.Debug, "Width: " + this.image.info.width.ToString());
-            FLogger.Log(LogType.Debug, "Height: " + this.image.info.height.ToString());
 
-            this.width = this.image.info.width;
-            this.height = this.image.info.height;
+            this.width = info.width;
+            this.height = info.height;
+
+            if (this.width != this.prevWidth || this.height != this.prevHeight)
+            {
+                this.isResized = true;
+            }
+            else
+            {
+                this.isResized = false;
+            }
+
+            this.prevWidth = this.width;
+            this.prevHeight = this.height;
             
-            var length = this.width * this.height * data.pitches[0];
+            var length = data.pitches[0] * this.height;
 
             var buffer = data.ToByteArray(0, length);
 

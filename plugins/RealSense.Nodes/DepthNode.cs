@@ -72,8 +72,8 @@ namespace RealSense.Nodes
             // フレームを開放する
             this.senseManager.ReleaseFrame();
 
-
             if (this.image == null) { return; }
+            this.invalidate = true;
 
             // 距離を表示する
             PXCMImage.ImageData data;
