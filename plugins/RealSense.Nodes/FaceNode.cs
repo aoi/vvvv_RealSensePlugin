@@ -43,22 +43,12 @@ namespace RealSense.Nodes
     }
 
     [PluginInfo(Name = "Face", Category = "RealSense", Version = "Intel", Help = "RealSense Face.", Tags = "RealSense, DX11, texture", Author = "aoi")]
-    public class FaceNode : IPluginEvaluate, IDX11ResourceProvider, IDisposable
+    public class FaceNode : BaseNode
     {
-        private const int COLOR_WIDTH = 640;
-        private const int COLOR_HEIGHT = 480;
-        private const int COLOR_FPS = 30;
-
         private const int MAX_FACES = 2;
 
         [Import()]
         public ILogger FLogger;
-
-        [Input("Enabled", IsSingle = true)]
-        protected ISpread<bool> FInEnabled;
-
-        [Input("Apply", IsBang = true, DefaultValue = 1)]
-        protected ISpread<bool> FApply;
 
         [Input("Face Expressions", DefaultEnumEntry = "EXPRESSION_BROW_RAISER_LEFT")]
         protected ISpread<PXCMFaceData.ExpressionsData.FaceExpression> FInExpressions;
@@ -78,108 +68,26 @@ namespace RealSense.Nodes
         protected ISpread<int> FOutFaceLandmarkBinSize;
         [Output("Face Landmark Points")]
         protected ISpread<Vector2D> FOutFaceLandmarkPoints;
-
         [Output("Face Expressions Result")]
         protected ISpread<int> FOutFaceExpressionsResult;
 
         [Output("Pulse")]
         protected ISpread<Single> FOutPulse;
 
-        [Output("Texture Out")]
-        protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
-
-        private PXCMSession session;
-        private PXCMSenseManager senseManager;
-        private PXCMCapture.Device device;
         private PXCMFaceConfiguration config;
         private PXCMFaceModule faceModule;
         private PXCMFaceData faceData;
 
-        private bool initialized = false;
-        private PXCMImage image; 
-        private bool FInvalidate;
 
-        public void Evaluate(int SpreadMax)
+        protected override void Initialize()
         {
-            if (FInEnabled.IsChanged && !FInEnabled[0])
-            {
-                this.Uninitialize();
-            }
+            this.GetSessionAndSenseManager();
 
-            if (!FInEnabled[0]) { return; }
-
-            if (this.FApply[0]) { this.FInvalidate = true; }
-
-            if (this.image == null)
-            {
-                if (this.FTextureOutput.SliceCount == 1)
-                {
-                    if (this.FTextureOutput[0] != null) { this.FTextureOutput[0].Dispose(); }
-                    this.FTextureOutput.SliceCount = 0;
-                }
-            }
-            else
-            {
-                this.FTextureOutput.SliceCount = 1;
-                if (this.FTextureOutput[0] == null) { this.FTextureOutput[0] = new DX11Resource<DX11DynamicTexture2D>(); }
-            }
-
-            if (!initialized)
-            {
-                try
-                {
-                    this.Initialize();
-                }
-                catch (Exception e)
-                {
-                    FLogger.Log(LogType.Error, e.Message);
-
-                    this.Uninitialize();
-                }
-            }
-            else
-            {
-                try
-                {
-                    this.UpdateFrame();
-                }
-                catch (Exception e)
-                {
-                    FLogger.Log(LogType.Error, "UpdateFrame: " + e.Message);
-                    this.Uninitialize();
-                }
-            }
-        }
-
-        private void Initialize()
-        {
-            this.session = PXCMSession.CreateInstance();
-            if (this.session == null)
-            {
-                throw new Exception("セッションの作成に失敗しました");
-            }
-            this.senseManager = this.session.CreateSenseManager();
-            if (this.senseManager == null)
-            {
-                throw new Exception("マネージャの作成に失敗しました");
-            }
-
-            pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, COLOR_WIDTH, COLOR_HEIGHT, COLOR_FPS);
-            if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            {
-                throw new Exception("カラーストリームの有効化に失敗しました");
-            }
-
-            //sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, COLOR_WIDTH, COLOR_HEIGHT, COLOR_FPS);
-            //if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
-            //{
-            //    throw new Exception("Depthストリームの有効化に失敗しました");
-            //}
+            this.EnableColorStream();
 
             this.InitializeFace();
 
             this.initialized = true;
-            
         }
 
         private void InitializeFace()
@@ -232,7 +140,6 @@ namespace RealSense.Nodes
             {
                 this.device.SetDepthConfidenceThreshold(1);
                 this.device.SetIVCAMFilterOption(6);
-                //this.device.SetIVCAMMotionRangeTradeOff(21);
             }
 
             // 検出
@@ -268,13 +175,12 @@ namespace RealSense.Nodes
         }
 
 
-        private void UpdateFrame()
+        protected override void UpdateFrame()
         {
             // フレームを取得する
             pxcmStatus sts = this.senseManager.AcquireFrame(true);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                //throw new Exception("フレームの取得に失敗しました");
                 FLogger.Log(LogType.Debug, "フレームの取得に失敗しました: " + sts.ToString());
                 return;
             }
@@ -291,6 +197,11 @@ namespace RealSense.Nodes
             // フレームデータを取得する
             PXCMCapture.Sample sample = this.senseManager.QuerySample();
             this.image = sample.color;
+
+            if (this.image != null)
+            {
+                this.invalidate = true;
+            }
 
             // SenseManagerモジュールの顔のデータを更新する
             this.faceData.Update();
@@ -374,7 +285,7 @@ namespace RealSense.Nodes
                             }
                             else
                             {
-                                FLogger.Log(LogType.Debug, "表出情報が取得できませんでした");
+                                // do nothing
                             }
                         }
 
@@ -395,54 +306,7 @@ namespace RealSense.Nodes
             }
         }
 
-        public void Update(IPluginIO pin, DX11RenderContext context)
-        {
-            if (!this.initialized) { return; }
-            if (this.image == null) { return; }
-
-            if (this.FTextureOutput.SliceCount == 0) { return; }
-
-            if (this.FInvalidate || !this.FTextureOutput[0].Contains(context))
-            {
-
-                SlimDX.DXGI.Format fmt = SlimDX.DXGI.Format.B8G8R8A8_UNorm;
-
-                Texture2DDescription desc;
-
-                if (this.FTextureOutput[0].Contains(context))
-                {
-                    desc = this.FTextureOutput[0][context].Resource.Description;
-
-                    if (desc.Width != COLOR_WIDTH || desc.Height != COLOR_HEIGHT || desc.Format != fmt)
-                    {
-                        this.FTextureOutput[0].Dispose(context);
-                        DX11DynamicTexture2D t2D = new DX11DynamicTexture2D(context, COLOR_WIDTH, COLOR_HEIGHT, fmt);
-
-                        this.FTextureOutput[0][context] = t2D;
-                    }
-                }
-                else
-                {
-                    this.FTextureOutput[0][context] = new DX11DynamicTexture2D(context, COLOR_WIDTH, COLOR_HEIGHT, fmt);
-#if DEBUG
-                    this.FTextureOutput[0][context].Resource.DebugName = "DynamicTexture";
-#endif
-                }
-
-                desc = this.FTextureOutput[0][context].Resource.Description;
-
-                var t = this.FTextureOutput[0][context];
-
-                byte[] buffer = this.GetColorImage();
-                if (buffer != null)
-                {
-                    t.WriteData(buffer);
-                    this.FInvalidate = false;
-                }
-            }
-        }
-
-        private byte[] GetColorImage()
+        protected override byte[] GetImageBuffer()
         {
             if (this.image == null)
             {
@@ -472,14 +336,8 @@ namespace RealSense.Nodes
             return buffer;
         }
 
-        //private PXCMFaceData.ExpressionsData.FaceExpression getExpression(FaceExpressions expression)
-        //{
-        //    PXCMFaceData.ExpressionsData.FaceExpression
-        //}
-
-        private void Uninitialize()
+        protected override void Uninitialize()
         {
-            this.initialized = false;
 
             if (this.faceData != null)
             {
@@ -497,39 +355,7 @@ namespace RealSense.Nodes
                 this.faceModule = null;
             }
 
-            if (this.device != null)
-            {
-                this.device.Dispose();
-                this.device = null;
-            }
-
-            if (this.senseManager != null)
-            {
-                this.senseManager.Close();
-                this.senseManager.Dispose();
-                this.senseManager = null;
-            }
-            if (this.session != null)
-            {
-                this.session.Dispose();
-                this.session = null;
-            }
-        }
-
-        public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
-        {
-            this.FTextureOutput[0].Dispose(context);
-        }
-
-        public void Dispose()
-        {
-            if (this.FTextureOutput.SliceCount > 0)
-            {
-                if (this.FTextureOutput[0] != null)
-                {
-                    this.FTextureOutput[0].Dispose();
-                }
-            }
+            base.Uninitialize();
         }
     }
 }

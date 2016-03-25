@@ -74,6 +74,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -109,6 +110,7 @@
     <Compile Include="RGBNode.cs" />
     <Compile Include="SegmentationNode.cs" />
     <Compile Include="SpeechRecognitionNode.cs" />
+    <Compile Include="TouchlessControllerNode.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
