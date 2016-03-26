@@ -38,18 +38,21 @@ vvvvでIntel RealSenseを使うためのプラグイン。
 
 ## インストール
 ### Intel RealSense SDKのインストール
-以下のサイトの手順通りにSDKをインストールする。
+以下のサイトの手順通りにSDKをインストールする。  
 https://software.intel.com/en-us/intel-realsense-sdk/download
 
 ### vvvvのインストール
-以下のサイトからvvvv 64bit Versionをダウンロード/インストールする。
+以下のサイトからvvvv 64bit Versionをダウンロード/インストールする。  
 https://vvvv.org/downloads
 
-以下のサイトからDX11 Nodesをダウンロード/インストールする。
+以下のサイトからDX11 Nodesをダウンロード/インストールする。  
 https://vvvv.org/contribution/directx11-nodes-alpha
 
 ### RealSenseプラグインのインストール
 
+1. bin/以下を適当なフォルダにコピー
+1. vvvvのrootパッチで1.のフォルダをpathに追加
+1. vvvvを再起動
 
 ## 仕様
 機能別対応解像度  
