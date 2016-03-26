@@ -12,6 +12,7 @@ vvvvでIntel RealSenseを使うためのプラグイン。
 |SpeechRecognition|音声認識。|
 |3DScan|顔/物体などを3Dスキャンし3Dモデルを作成。|
 |Segmentation|背景除去。|
+|TouchlessController|ジェスチャーによるUI操作。|
 
 起動に時間がかかる場合があります。
 深度情報を扱うノードは特に時間がかかる&一時的に応答なしになる場合があります。
