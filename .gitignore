@@ -1,3 +1,4 @@
 ﻿*~.xml
 /インストーラー
 /src/plugins/RealSense.Nodes/bin
+/src/plugins/RealSense.Nodes/obj
