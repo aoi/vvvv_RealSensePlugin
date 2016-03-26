@@ -1,5 +1,3 @@
-VVVV.Packs.RSSDK-SimplifiedPipeline
-/plugins/RealSense.Nodes/bin
-/plugins/RealSense.Nodes/obj
-
-*~.xml
+﻿*~.xml
+/インストーラー
+/src/plugins/RealSense.Nodes/bin
