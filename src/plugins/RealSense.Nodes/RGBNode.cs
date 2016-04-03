@@ -13,6 +13,7 @@ using FeralTic.DX11.Resources;
 using FeralTic.DX11;
 
 using VVVV.Core.Logging;
+using System.Threading.Tasks;
 #endregion
 
 namespace RealSense.Nodes
@@ -32,8 +33,8 @@ namespace RealSense.Nodes
             this.GetDevice();
             this.SetMirrorMode();
 
+            this.initializing = false;
             this.initialized = true;
-
         }
 
         protected override void UpdateFrame()

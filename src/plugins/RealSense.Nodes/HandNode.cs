@@ -94,6 +94,7 @@ namespace RealSense.Nodes
             // 手の検出の初期化
             this.InitializeHandTracking(senseManager);
 
+            this.initializing = false;
             this.initialized = true;
         }
 

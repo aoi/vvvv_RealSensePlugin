@@ -26,7 +26,7 @@ namespace RealSense.Nodes
         [Input("Position", DefaultValues = new double[] { 0.0, 0.0})]
         private ISpread<Vector2D> FInPosition;
 
-        [Output("Distance", DefaultValue=0.0)]
+        [Output("Distance", DefaultValue = 0.0, Order = 2)]
         private ISpread<float> FOutDistance;
 
         protected override void Initialize()
@@ -41,8 +41,8 @@ namespace RealSense.Nodes
             this.GetDevice();
             this.SetMirrorMode();
 
+            this.initializing = false;
             this.initialized = true;
-
         }
 
         protected override void UpdateFrame()

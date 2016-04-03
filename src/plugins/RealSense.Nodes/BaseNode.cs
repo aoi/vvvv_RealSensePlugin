@@ -14,6 +14,8 @@ using FeralTic.DX11.Resources;
 using FeralTic.DX11;
 
 using VVVV.Core.Logging;
+using System.Threading.Tasks;
+using System.Net.Http;
 #endregion
 
 namespace RealSense.Nodes
@@ -32,10 +34,14 @@ namespace RealSense.Nodes
         [Input("Enabled", IsSingle = true, DefaultValue = 0)]
         protected ISpread<bool> FInEnabled;
 
-        [Output("Texture Out")]
+        [Output("Texture Out", IsSingle = true, Order = 1)]
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
+        [Output("Status", IsSingle = true, DefaultString = "", Order = 99)]
+        protected ISpread<string> FOutStatus;
+
         protected bool initialized = false;
+        protected bool initializing = false;
 
         protected PXCMSession session;
         protected PXCMSenseManager senseManager;
@@ -57,12 +63,14 @@ namespace RealSense.Nodes
 
         public void Evaluate(int SpreadMax)
         {
-            if (this.initialized && !FInEnabled[0])
+            if ((this.initialized || this.initializing) && !FInEnabled[0])
             {
                 this.Uninitialize();
+
+                return;
             }
 
-            if (!FInEnabled[0]) { return; }
+            if (!this.FInEnabled[0]) { return; }
 
             if (this.image == null)
             {
@@ -87,11 +95,16 @@ namespace RealSense.Nodes
                     this.width = int.Parse(r[0]);
                     this.height = int.Parse(r[1]);
 
-                    this.Initialize();
+                    //this.Initialize();
+                    if (!this.initializing)
+                    {
+                        this.InitializeAsync();
+                    }
                 }
                 catch (Exception e)
                 {
                     FLogger.Log(LogType.Error, e.Message + e.StackTrace);
+                    this.initializing = false;
                     this.Uninitialize();
                 }
             }
@@ -110,6 +123,24 @@ namespace RealSense.Nodes
         }
 
         protected abstract void Initialize();
+
+        protected async void InitializeAsync()
+        {
+            this.initializing = true;
+            FOutStatus.SliceCount = 1;
+            FOutStatus[0] = "Initializing";
+
+            try
+            {
+                await Task.Run(() => this.Initialize());
+            }
+            catch (Exception e)
+            {
+                FLogger.Log(LogType.Error, e.Message, e);
+                this.initializing = false;
+                this.Uninitialize();
+            }
+        }
 
         protected abstract void UpdateFrame();
 
@@ -165,7 +196,7 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました: " + sts.ToString());
+                throw new Exception("Initialization failed: " + sts.ToString());
             }
         }
 
@@ -219,6 +250,8 @@ namespace RealSense.Nodes
 
         protected virtual void Uninitialize()
         {
+            if (this.initializing) { return; }
+
             if (this.image != null)
             {
                 this.image.Dispose();
@@ -244,7 +277,9 @@ namespace RealSense.Nodes
                 this.senseManager = null;
             }
 
+            this.initializing = false;
             this.initialized = false;
+            FOutStatus[0] = "";
         }
 
         public void Dispose()
@@ -263,7 +298,16 @@ namespace RealSense.Nodes
 
         public void Destroy(IPluginIO pin, DX11RenderContext context, bool force)
         {
-            this.FTextureOutput[0].Dispose(context);
+            if (this.FTextureOutput[0] != null)
+            {
+                this.FTextureOutput[0].Dispose(context);
+            }
+
+            if (this.FTextureOutput != null)
+            {
+                this.FTextureOutput.Dispose();
+            }
+
         }
     }
 }

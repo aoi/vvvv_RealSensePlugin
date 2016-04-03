@@ -40,16 +40,10 @@ namespace RealSense.Nodes
 
         [Input("Scan", IsSingle = true, DefaultBoolean = false)]
         private IDiffSpread<bool> FInScan;
-
-        //[Input("Reconstruct", IsSingle = true, DefaultBoolean = false)]
-        //private ISpread<bool> FInReconstruct;
-
-        [Output("Status", IsSingle = true, DefaultString = "")]
-        private ISpread<string> FOutStatus;
+        
 
         private int prevWidth = 0;
         private int prevHeight = 0;
-
 
         protected override void Initialize()
         {
@@ -68,6 +62,7 @@ namespace RealSense.Nodes
 
             this.Initialize3DScan();
 
+            this.initializing = false;
             this.initialized = true;
         }
 
