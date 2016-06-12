@@ -2,3 +2,17 @@
 /インストーラー
 /src/plugins/RealSense.Nodes/bin
 /src/plugins/RealSense.Nodes/obj
+/src/plugins/packages/VVVV.Utils.32.0.0
+/src/plugins/packages/VVVV.Utils.34.2.0
+/src/plugins/packages/Rx-Core.2.2.5
+/src/plugins/packages/Rx-Interfaces.2.2.5
+/src/plugins/packages/Rx-Linq.2.2.5
+/src/plugins/packages/Rx-Main.2.2.5
+/src/plugins/packages/Rx-PlatformServices.2.2.5
+/src/plugins/packages/VVVV.Core.32.0.0
+/src/plugins/packages/VVVV.Core.34.2.0
+/src/plugins/packages/VVVV.PluginInterfaces.0.0.0
+/src/plugins/packages/VVVV.PluginInterfaces.34.2.0
+/src/plugins/packages/VVVV.SlimDX.1.0.1
+/src/plugins/packages/VVVV.SlimDX.1.0.2
+/src/plugins/packages/VVVV.System.ComponentModel.Composition.Codeplex.2.5.0
