@@ -42,7 +42,7 @@ namespace RealSense.Nodes
         EYES_DOWN,
     }
 
-    [PluginInfo(Name = "Face", Category = "RealSense", Version = "Intel", Help = "RealSense Face.", Tags = "RealSense, DX11, texture", Author = "aoi")]
+    [PluginInfo(Name = "Face", Category = "RealSense", Version = "Intel(R)", Help = "RealSense Face.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class FaceNode : BaseNode
     {
         private const int MAX_FACES = 2;
@@ -79,7 +79,7 @@ namespace RealSense.Nodes
         private PXCMFaceData faceData;
 
 
-        protected override void Initialize()
+        protected override bool Initialize()
         {
             this.GetSessionAndSenseManager();
 
@@ -88,50 +88,49 @@ namespace RealSense.Nodes
             this.InitializeFace();
 
             this.initialized = true;
+
+            return true;
         }
 
         private void InitializeFace()
         {
-            // 顔検出を有効化する
             pxcmStatus sts = this.senseManager.EnableFace();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("顔検出の有効化に失敗しました");
+                throw new Exception("Could not enable face.");
             }
 
-            // 顔検出器を生成する
             this.faceModule = this.senseManager.QueryFace();
             if (this.faceModule == null)
             {
-                throw new Exception("顔検出器の取得に失敗しました");
+                throw new Exception("Could not get face module.");
             }
 
-            // 顔検出のプロパティを取得
+            // get properties for face module
             this.config = this.faceModule.CreateActiveConfiguration();
             this.config.SetTrackingMode(PXCMFaceConfiguration.TrackingModeType.FACE_MODE_COLOR);
             this.config.ApplyChanges();
             this.config.Update();
 
-            // パイプラインを初期化する
+            // init pipeline
             sts = this.senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR &&
                 sts != pxcmStatus.PXCM_STATUS_CAPTURE_CONFIG_ALREADY_SET)
             {
-                throw new Exception("初期化に失敗しました: " + sts.ToString());
+                throw new Exception("Initialization failed. " + sts.ToString());
             }
 
-            // デバイス情報の取得
             this.device = this.senseManager.QueryCaptureManager().QueryDevice();
             if (this.device == null)
             {
-                throw new Exception("デバイスの作成に失敗しました");
+                throw new Exception("Could not get device.");
             }
 
-            // ミラー表示にする
+            // set mirror mode
             sts = this.device.SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("ミラー表示の設定に失敗しました");
+                throw new Exception("Could not set mirror mode.");
             }
 
             PXCMCapture.DeviceInfo deviceInfo;
@@ -142,29 +141,29 @@ namespace RealSense.Nodes
                 this.device.SetIVCAMFilterOption(6);
             }
 
-            // 検出
+            // detection
             this.config.detection.isEnabled = true;
             this.config.detection.maxTrackedFaces = MAX_FACES;
-            // ポーズ
+            // pose
             this.config.pose.isEnabled = true;
             this.config.pose.maxTrackedFaces = MAX_FACES;
-            // ランドマーク
+            // landmarks
             this.config.landmarks.isEnabled = true;
             this.config.landmarks.maxTrackedFaces = MAX_FACES;
-            // 表出情報
+            // expressions
             PXCMFaceConfiguration.ExpressionsConfiguration expressionConfig =  this.config.QueryExpressions();
             if (expressionConfig == null)
             {
-                throw new Exception("表出情報検出の設定に失敗しました");
+                throw new Exception("Could not configure expressions module.");
             }
             expressionConfig.Enable();
             expressionConfig.EnableAllExpressions();
             expressionConfig.properties.maxTrackedFaces = MAX_FACES;
-            // 心拍数
+            // pulse
             PXCMFaceConfiguration.PulseConfiguration pulseConfig = this.config.QueryPulse();
             if (pulseConfig == null)
             {
-                throw new Exception("心拍数検出の設定に失敗しました。");
+                throw new Exception("Could not configure pulse module.");
             }
             pulseConfig.Enable();
             pulseConfig.properties.maxTrackedFaces = MAX_FACES;
@@ -177,24 +176,20 @@ namespace RealSense.Nodes
 
         protected override void UpdateFrame()
         {
-            // フレームを取得する
             pxcmStatus sts = this.senseManager.AcquireFrame(true);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                FLogger.Log(LogType.Debug, "フレームの取得に失敗しました: " + sts.ToString());
+                FLogger.Log(LogType.Debug, "Could not acquire frame. " + sts.ToString());
                 return;
             }
 
-            // 顔のデータを更新する
             this.updateFaceFrame();
 
-            // フレームを開放する
             this.senseManager.ReleaseFrame();
         }
 
         private void updateFaceFrame()
         {
-            // フレームデータを取得する
             PXCMCapture.Sample sample = this.senseManager.QuerySample();
             this.image = sample.color;
 
@@ -203,23 +198,22 @@ namespace RealSense.Nodes
                 this.invalidate = true;
             }
 
-            // SenseManagerモジュールの顔のデータを更新する
             this.faceData.Update();
 
-            // 検出した顔の数を取得する
+            // get number of faces
             FOutFaceLandmarkPoints.SliceCount = 0;
             FOutFaceExpressionsResult.SliceCount = 0;
             int numFaces = this.faceData.QueryNumberOfDetectedFaces();
             for (int i=0; i<numFaces; ++i)
             {
-                // 顔の情報を取得する
+                // get faces info
                 PXCMFaceData.Face face = this.faceData.QueryFaceByIndex(i);
                 
-                // 顔の位置を取得:Depthで取得する
+                // get face position by Depth
                 var detection = face.QueryDetection();
                 if (detection != null)
                 {
-                    // 検出
+                    // detection
                     PXCMRectI32 faceRect;
                     detection.QueryBoundingRect(out faceRect);
                     int sliceCount = i + 1;
@@ -230,32 +224,30 @@ namespace RealSense.Nodes
                     FOutFaceHeight.SliceCount = sliceCount;
                     FOutFaceHeight[i] = faceRect.h;
 
-                    // ポーズ:Depth使用時のみ
+                    // pose(only use Depth mode)
                     PXCMFaceData.PoseData pose = face.QueryPose();
                     if (pose != null)
                     {
-                        // 顔の姿勢情報
+                        // faces angle
                         PXCMFaceData.PoseEulerAngles poseAngle = new PXCMFaceData.PoseEulerAngles();
                         pose.QueryPoseAngles(out poseAngle);
                         FOutFacePose.SliceCount = sliceCount;
                         FOutFacePose[i] = new Vector3D(poseAngle.pitch, poseAngle.yaw, poseAngle.roll);
                     }
 
-                    // ランドマーク
+                    // landmarks
                     PXCMFaceData.LandmarksData landmarks = face.QueryLandmarks();
                     FOutFaceLandmarkBinSize.SliceCount = sliceCount;
                     if (landmarks != null)
                     {
-                        // ランドマークデータから何個の特徴点が認識できたか
+                        // number of feature points from landmarks
                         int numPoints = landmarks.QueryNumPoints();
                         FOutFaceLandmarkBinSize[i] = numPoints;
 
-                        // 認識できた特徴点の数だけ、特徴点を格納するインスタンスを生成する
                         PXCMFaceData.LandmarkPoint[] landmarkPoints = new PXCMFaceData.LandmarkPoint[numPoints];
                         int prevSliceCount = FOutFaceLandmarkPoints.SliceCount;
                         FOutFaceLandmarkPoints.SliceCount = prevSliceCount + numPoints;
 
-                        // ランドマークデータから特徴点の位置を取得
                         if (landmarks.QueryPoints(out landmarkPoints))
                         {
                             for (int j = 0; j < numPoints; j++)
@@ -271,7 +263,6 @@ namespace RealSense.Nodes
                         FOutFaceLandmarkPoints.SliceCount = 0;
                     }
 
-                    // 表出情報
                     PXCMFaceData.ExpressionsData expressionData = face.QueryExpressions();
                     if (expressionData != null)
                     {
@@ -295,7 +286,6 @@ namespace RealSense.Nodes
                         FOutFaceExpressionsResult.SliceCount = 0;
                     }
 
-                    // 心拍数
                     PXCMFaceData.PulseData pulseData = face.QueryPulse();
                     if (pulseData != null)
                     {
@@ -313,7 +303,6 @@ namespace RealSense.Nodes
                 return null;
             }
 
-            // データを取得する
             PXCMImage.ImageData data;
             pxcmStatus ret = this.image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
@@ -322,10 +311,9 @@ namespace RealSense.Nodes
 
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("カラー画像の取得に失敗");
+                throw new Exception("Could not acquire Color image.");
             }
 
-            // バイト配列に変換する
             var info = this.image.QueryInfo();
             var length = data.pitches[0] * info.height;
 

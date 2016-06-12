@@ -18,13 +18,13 @@ using VVVV.Core.Logging;
 
 namespace RealSense.Nodes
 {
-    [PluginInfo(Name = "Segmentation", Category = "RealSense", Version = "Intel", Help = "RealSense Segmentation Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
+    [PluginInfo(Name = "Segmentation", Category = "RealSense", Version = "Intel(R)", Help = "RealSense Segmentation Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class SegmentationNode : BaseNode
     {
 
         private PXCM3DSeg segmentation;
 
-        protected override void Initialize()
+        protected override bool Initialize()
         {
 
             this.GetSessionAndSenseManager();
@@ -34,16 +34,15 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.Enable3DSeg();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("セグメンテーションの有効化に失敗しました");
+                throw new Exception("Could not enable 3D Segmentation.");
             }
 
-            // パイプラインを初期化する
             this.InitSenseManager();
 
             this.segmentation = this.senseManager.Query3DSeg();
             if (this.segmentation == null)
             {
-                throw new Exception("セグメンテーションの取得に失敗しました");
+                throw new Exception("Could not get 3D Segmentation.");
             }
 
             this.GetDevice();
@@ -51,11 +50,12 @@ namespace RealSense.Nodes
             this.SetMirrorMode();
 
             this.initialized = true;
+
+            return true;
         }
 
         protected override void UpdateFrame()
         {
-            // フレームを取得する
             pxcmStatus sts = this.senseManager.AcquireFrame(false);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
@@ -76,7 +76,6 @@ namespace RealSense.Nodes
                 this.invalidate = true;
             }
 
-            // フレームを開放する
             this.senseManager.ReleaseFrame();
         }
 
@@ -86,7 +85,6 @@ namespace RealSense.Nodes
 
             byte[] imageBuffer = new byte[width * height * BYTE_PER_PIXEL];
 
-            // データを取得する
             PXCMImage.ImageData data;
             pxcmStatus sts = this.image.AcquireAccess(PXCMImage.Access.ACCESS_READ, PXCMImage.PixelFormat.PIXEL_FORMAT_RGB32, out data);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
@@ -94,10 +92,8 @@ namespace RealSense.Nodes
                 return null;
             }
 
-            // ピクセルデータを取得する
             Array.Clear(imageBuffer, 0, imageBuffer.Length);
 
-            // セグメンテーション画像をバイト列に変換する
             var info = this.image.QueryInfo();
             var b = data.ToByteArray(0, data.pitches[0] * info.height);
 
@@ -105,7 +101,7 @@ namespace RealSense.Nodes
             {
                 var index = i * BYTE_PER_PIXEL;
 
-                // α値が0でない場合には有効な場所として色をコピーする
+                // if α value is not 0, set color
                 if (b[index + 3] != 0)
                 {
                     imageBuffer[index + 0] = b[index + 0];
@@ -113,17 +109,13 @@ namespace RealSense.Nodes
                     imageBuffer[index + 2] = b[index + 2];
                     imageBuffer[index + 3] = 255;
                 }
-                // α値が0の場合はピクセルデータのα値を0にする
+                // if α value is 0, pixel color is nothing.
                 else
                 {
                     imageBuffer[index + 3] = 0;
                 }
             }
 
-            // ピクセルデータを更新する
-            // Update()で行う
-
-            // データを開放する
             this.image.ReleaseAccess(data);
 
             return imageBuffer;

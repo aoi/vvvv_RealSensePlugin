@@ -10,7 +10,7 @@ using VVVV.Core.Logging;
 
 namespace RealSense.Nodes
 {
-    [PluginInfo(Name = "TouchlessController", Category = "RealSense", Version = "Intel", Help = "RealSense Touchless Controller.", Tags = "RealSense", Author = "aoi", AutoEvaluate = true)]
+    [PluginInfo(Name = "TouchlessController", Category = "RealSense", Version = "Intel(R)", Help = "RealSense Touchless Controller.", Tags = "RealSense", Author = "aoi", AutoEvaluate = true)]
     public class TouchlessControllerNode : IPluginEvaluate, IDisposable
     {
 
@@ -94,7 +94,7 @@ namespace RealSense.Nodes
             this.senseManager = PXCMSenseManager.CreateInstance();
             if (this.senseManager == null)
             {
-                throw new Exception("マネージャを作成できませんでした");
+                throw new Exception("Could not create Sense Manager.");
             }
 
             this.session = this.senseManager.session;
@@ -108,13 +108,13 @@ namespace RealSense.Nodes
             sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("カラーストリームの有効化に失敗しました");
+                throw new Exception("Could not enable Color Stream.");
             }
 
             sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("Depthストリームの有効化に失敗しました");
+                throw new Exception("Could not enable Depth Stream.");
             }
 
 
@@ -125,7 +125,7 @@ namespace RealSense.Nodes
             sts = this.senseManager.Init(handler);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました: " + sts.ToString());
+                throw new Exception("Initialization failed. " + sts.ToString());
             }
 
             this.controller = this.senseManager.QueryTouchlessController();

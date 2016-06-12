@@ -59,7 +59,7 @@ namespace RealSense.Nodes
             this.imageBuffer = new byte[this.width * this.height * BYTE_PER_PIXEL];
         }
 
-        protected override void Initialize()
+        protected override bool Initialize()
         {
             this.imageBuffer = new byte[this.width * this.height * BYTE_PER_PIXEL];
 
@@ -95,6 +95,8 @@ namespace RealSense.Nodes
             this.InitializeHandTracking(senseManager);
 
             this.initialized = true;
+
+            return true;
         }
 
         private void InitializeHandTracking(PXCMSenseManager senseManager)

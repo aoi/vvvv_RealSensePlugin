@@ -1,25 +1,15 @@
 ﻿#region usings
 using System;
-using System.ComponentModel.Composition;
 
 using VVVV.PluginInterfaces.V1;
 using VVVV.PluginInterfaces.V2;
-
-using VVVV.DX11;
 using VVVV.Utils.VMath;
-
-using SlimDX.Direct3D11;
-
-using FeralTic.DX11.Resources;
-using FeralTic.DX11;
-
-using VVVV.Core.Logging;
 
 #endregion
 
 namespace RealSense.Nodes
 {
-    [PluginInfo(Name = "Depth", Category = "RealSense", Version = "Intel", Help = "RealSense Depth Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
+    [PluginInfo(Name = "Depth", Category = "RealSense", Version = "Intel(R)", Help = "RealSense Depth Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class DepthNode : BaseNode
     {
 
@@ -29,7 +19,7 @@ namespace RealSense.Nodes
         [Output("Distance", DefaultValue=0.0)]
         private ISpread<float> FOutDistance;
 
-        protected override void Initialize()
+        protected override bool Initialize()
         {
             this.image = null;
 
@@ -43,12 +33,13 @@ namespace RealSense.Nodes
 
             this.initialized = true;
 
+            return true;
+
         }
 
         protected override void UpdateFrame()
         {
-            // フレームを取得する
-            pxcmStatus ret = this.senseManager.AcquireFrame(false);
+            pxcmStatus ret = this.senseManager.AcquireFrame(true);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 if (ret == pxcmStatus.PXCM_STATUS_EXEC_ABORTED)
@@ -57,25 +48,23 @@ namespace RealSense.Nodes
                 }
                 else
                 {
-                    throw new Exception("フレームの取得に失敗しました: " + ret.ToString());
+                    throw new Exception("Could not acquire frame. " + ret.ToString());
                 }
             }
 
-            // フレームデータを取得する
             PXCMCapture.Sample sample = this.senseManager.QuerySample();
             if (sample != null)
             {
-                // 画像データを更新
+                // update image
                 this.image = sample.depth;
             }
 
-            // フレームを開放する
             this.senseManager.ReleaseFrame();
 
             if (this.image == null) { return; }
             this.invalidate = true;
 
-            // 距離を表示する
+            // get distance
             PXCMImage.ImageData data;
             ret = this.image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
@@ -83,9 +72,8 @@ namespace RealSense.Nodes
             );
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("Depth画像の取得に失敗");
+                throw new Exception("Could not acquire Depth image.");
             }
-            // バイト配列に変換する
             var info = this.image.QueryInfo();
 
             var length = info.width * info.height;
@@ -115,7 +103,6 @@ namespace RealSense.Nodes
                 return null;
             }
 
-            // 画像を取得する
             PXCMImage.ImageData data;
             pxcmStatus ret = this.image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
@@ -125,10 +112,9 @@ namespace RealSense.Nodes
 
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("Depth画像の取得に失敗");
+                throw new Exception("Could not acquire Depth image.");
             }
 
-            // バイト配列に変換する
             var info = this.image.QueryInfo();
             var length = data.pitches[0] * info.height;
             var buffer = data.ToByteArray(0, length);

@@ -14,6 +14,7 @@ using FeralTic.DX11.Resources;
 using FeralTic.DX11;
 
 using VVVV.Core.Logging;
+using System.Threading.Tasks;
 #endregion
 
 namespace RealSense.Nodes
@@ -36,6 +37,7 @@ namespace RealSense.Nodes
         protected Pin<DX11Resource<DX11DynamicTexture2D>> FTextureOutput;
 
         protected bool initialized = false;
+        protected bool initializing = false;
 
         protected PXCMSession session;
         protected PXCMSenseManager senseManager;
@@ -109,7 +111,26 @@ namespace RealSense.Nodes
             }
         }
 
-        protected abstract void Initialize();
+        protected async void InitializeAsync()
+        {
+            this.initializing = true;
+
+            Task<bool> task = Task.Run(new Func<bool>(() => {
+                return this.Initialize();
+            }));
+            if (!(await task))
+            {
+                this.initializing = false;
+                this.Uninitialize();
+            }
+            else
+            {
+                this.initializing = false;
+            }
+
+        }
+
+        protected abstract bool Initialize();
 
         protected abstract void UpdateFrame();
 
@@ -120,7 +141,7 @@ namespace RealSense.Nodes
             this.senseManager = PXCMSenseManager.CreateInstance();
             if (this.senseManager == null)
             {
-                throw new Exception("マネージャを作成できませんでした");
+                throw new Exception("Could not create Sense Manager.");
             }
 
             this.session = this.senseManager.session;
@@ -134,7 +155,7 @@ namespace RealSense.Nodes
 
             if (this.device == null)
             {
-                throw new Exception("デバイスの取得に失敗しました");
+                throw new Exception("Could not get device.");
             }
         }
 
@@ -143,7 +164,7 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_COLOR, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("カラーストリームの有効化に失敗しました");
+                throw new Exception("Could not enable Color Stream.");
             }
         }
 
@@ -152,7 +173,7 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.EnableStream(PXCMCapture.StreamType.STREAM_TYPE_DEPTH, this.width, this.height, FPS);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("Depthストリームの有効化に失敗しました");
+                throw new Exception("Could not enable Depth Stream.");
             }
         }
 
@@ -165,7 +186,7 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.senseManager.Init();
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("初期化に失敗しました: " + sts.ToString());
+                throw new Exception("Initialization failed. " + sts.ToString());
             }
         }
 
@@ -174,7 +195,7 @@ namespace RealSense.Nodes
             pxcmStatus sts = this.device.SetMirrorMode(PXCMCapture.Device.MirrorMode.MIRROR_MODE_HORIZONTAL);
             if (sts < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("ミラー表示の設定に失敗しました");
+                throw new Exception("Could not set mirror mode.");
             }
         }
 
@@ -219,6 +240,8 @@ namespace RealSense.Nodes
 
         protected virtual void Uninitialize()
         {
+            if (this.initializing) { return; }
+
             if (this.image != null)
             {
                 this.image.Dispose();

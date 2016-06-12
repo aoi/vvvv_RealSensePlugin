@@ -1,13 +1,13 @@
 <!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta34.2.dtd" >
-   <PATCH nodename="C:\workspace\vvvv\RealSense\bin\plugins\Depth (RealSense Intel) help.v4p" systemname="Depth (RealSense Intel) help" filename="C:\workspace\vvvv\RealSense\bin\plugins\Depth (RealSense Intel) help.v4p">
-   <BOUNDS type="Window" left="0" top="510" width="11070" height="12495">
+   <PATCH nodename="C:\workspace\vvvv\RealSense\bin\plugins\Depth (RealSense Intel) help.v4p" systemname="Depth (RealSense Intel) help" filename="C:\workspace\vvvv\RealSense\bin\plugins\Depth (RealSense Intel) help.v4p" scrollx="0" scrolly="-360">
+   <BOUNDS type="Window" left="0" top="12" width="9720" height="12492">
    </BOUNDS>
    <NODE systemname="Renderer (TTY)" nodename="Renderer (TTY)" componentmode="InAWindow" id="3">
    <BOUNDS type="Node" left="2430" top="900" width="100" height="100">
    </BOUNDS>
    <BOUNDS type="Box" left="2430" top="900" width="2400" height="1800">
    </BOUNDS>
-   <BOUNDS type="Window" left="11190" top="405" width="12585" height="4995">
+   <BOUNDS type="Window" left="9660" top="0" width="13380" height="4992">
    </BOUNDS>
    <PIN pinname="Log Messages" slicecount="1" visible="1" values="0">
    </PIN>
@@ -15,9 +15,9 @@
    </PIN>
    </NODE>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="2" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="3315" top="225" width="480" height="480">
+   <BOUNDS type="Box" left="3375" top="225" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="3315" top="225" width="0" height="0">
+   <BOUNDS type="Node" left="3375" top="225" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Y Input Value" slicecount="1" visible="1" values="1">
    </PIN>
@@ -41,9 +41,9 @@
    </PIN>
    </NODE>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="0" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="330" top="885" width="795" height="240">
+   <BOUNDS type="Box" left="294" top="849" width="795" height="240">
    </BOUNDS>
-   <BOUNDS type="Node" left="330" top="885" width="0" height="0">
+   <BOUNDS type="Node" left="294" top="849" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Units" slicecount="1" values="||">
    </PIN>
@@ -69,7 +69,7 @@
    </BOUNDS>
    <BOUNDS type="Box" left="4620" top="9915" width="6000" height="4500">
    </BOUNDS>
-   <BOUNDS type="Window" left="11190" top="5505" width="9840" height="7785">
+   <BOUNDS type="Window" left="9684" top="4980" width="9228" height="6816">
    </BOUNDS>
    <PIN pinname="Layers" visible="1" slicecount="1" values="||">
    </PIN>
@@ -79,7 +79,7 @@
    </PIN>
    </NODE>
    <NODE systemname="Depth (RealSense Intel)" filename="RealSense.Nodes.dll" nodename="Depth (RealSense Intel)" componentmode="Hidden" id="13">
-   <BOUNDS type="Node" left="4890" top="3615" width="100" height="100">
+   <BOUNDS type="Node" left="4866" top="3615" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Enabled" visible="1">
    </PIN>
@@ -199,7 +199,7 @@
    <LINK srcnodeid="23" srcpinname="XYZ" dstnodeid="22" dstpinname="Translate XYZ">
    </LINK>
    <NODE systemname="Map (Value)" nodename="Map (Value)" componentmode="Hidden" id="24">
-   <BOUNDS type="Node" left="4965" top="3015" width="100" height="100">
+   <BOUNDS type="Node" left="4941" top="3015" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Source Maximum" visible="1" slicecount="2" values="1,-1">
    </PIN>
@@ -217,7 +217,7 @@
    <LINK srcnodeid="24" srcpinname="Output" dstnodeid="13" dstpinname="PositionXY" linkstyle="PolyLine">
    </LINK>
    <NODE systemname="Enum2String (Enumerations)" nodename="Enum2String (Enumerations)" componentmode="Hidden" id="28">
-   <BOUNDS type="Node" left="5670" top="1485" width="100" height="100">
+   <BOUNDS type="Node" left="5646" top="1461" width="100" height="100">
    </BOUNDS>
    <PIN pinname="Enum" visible="1">
    </PIN>
@@ -353,9 +353,11 @@
    <LINK srcnodeid="38" srcpinname="XY" dstnodeid="23" dstpinname="XY">
    </LINK>
    <LINK srcnodeid="38" srcpinname="XY" dstnodeid="24" dstpinname="Input" hiddenwhenlocked="1" linkstyle="Bezier">
-   <LINKPOINT x="3885" y="8395">
+   <LINKPOINT x="3877" y="8395">
    </LINKPOINT>
-   <LINKPOINT x="3135" y="1955">
+   <LINKPOINT x="3119" y="1955">
    </LINKPOINT>
    </LINK>
+   <PACK Name="Image" Version="0.2.0">
+   </PACK>
    </PATCH>

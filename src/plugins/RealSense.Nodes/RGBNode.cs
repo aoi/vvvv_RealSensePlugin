@@ -17,10 +17,10 @@ using VVVV.Core.Logging;
 
 namespace RealSense.Nodes
 {
-    [PluginInfo(Name = "RGB", Category = "RealSense", Version = "Intel", Help = "RealSense RGB Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
+    [PluginInfo(Name = "RGB", Category = "RealSense", Version = "Intel(R)", Help = "RealSense RGB Image.", Tags = "RealSense, DX11, texture", Author = "aoi")]
     public class RGBNode : BaseNode
     {
-        protected override void Initialize()
+        protected override bool Initialize()
         {
             this.image = null;
 
@@ -34,23 +34,22 @@ namespace RealSense.Nodes
 
             this.initialized = true;
 
+            return true;
+
         }
 
         protected override void UpdateFrame()
         {
 
-            // フレームを取得する
             pxcmStatus ret = this.senseManager.AcquireFrame(false);
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
                 return;
             }
 
-            // フレームデータを取得する
             PXCMCapture.Sample sample = this.senseManager.QuerySample();
             if (sample != null)
             {
-                // 画像データを更新
                 this.image = sample.color;
             }
 
@@ -59,7 +58,6 @@ namespace RealSense.Nodes
                 this.invalidate = true;
             }
 
-            // フレームを開放する
             senseManager.ReleaseFrame();
         }
 
@@ -70,7 +68,6 @@ namespace RealSense.Nodes
                 return null;
             }
 
-            // データを取得する
             PXCMImage.ImageData data;
             pxcmStatus ret = this.image.AcquireAccess(
                 PXCMImage.Access.ACCESS_READ,
@@ -79,10 +76,9 @@ namespace RealSense.Nodes
 
             if (ret < pxcmStatus.PXCM_STATUS_NO_ERROR)
             {
-                throw new Exception("カラー画像の取得に失敗");
+                throw new Exception("Could not acquire Color image.");
             }
 
-            // バイト配列に変換する
             var info = this.image.QueryInfo();
             var length = data.pitches[0] * info.height;
 

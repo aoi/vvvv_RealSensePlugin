@@ -1,0 +1,99 @@
+<!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta34.2.dtd" >
+   <PATCH nodename="C:\workspace\vvvv\RealSense\paches\speech_test.v4p" systemname="speech_test" filename="C:\workspace\vvvv\RealSense\paches\speech_test.v4p">
+   <BOUNDS type="Window" left="0" top="0" width="9000" height="6000">
+   </BOUNDS>
+   <PACK Name="Image" Version="0.2.0">
+   </PACK>
+   <PACK Name="addonpack" Version="34.1.0">
+   </PACK>
+   <NODE systemname="Renderer (TTY)" nodename="Renderer (TTY)" componentmode="InAWindow" id="5">
+   <BOUNDS type="Node" left="5592" top="1164" width="100" height="100">
+   </BOUNDS>
+   <BOUNDS type="Box" left="5592" top="1164" width="2400" height="1800">
+   </BOUNDS>
+   <BOUNDS type="Window" left="8964" top="0" width="14076" height="5064">
+   </BOUNDS>
+   <PIN pinname="Show TimeStamp" slicecount="1" values="1">
+   </PIN>
+   <PIN pinname="Show Node Address" slicecount="1" values="1">
+   </PIN>
+   <PIN pinname="Log Messages" visible="1">
+   </PIN>
+   </NODE>
+   <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="6" systemname="IOBox (Value Advanced)">
+   <BOUNDS type="Box" left="6516" top="504" width="480" height="480">
+   </BOUNDS>
+   <BOUNDS type="Node" left="6516" top="504" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Y Input Value" slicecount="1" visible="1" values="1">
+   </PIN>
+   <PIN pinname="Units" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Precision" slicecount="1" values="4">
+   </PIN>
+   <PIN pinname="Value Type" slicecount="1" values="Boolean">
+   </PIN>
+   <PIN pinname="Behavior" slicecount="1" values="Toggle">
+   </PIN>
+   <PIN pinname="Descriptive Name" slicecount="1" values="|Log Messages|">
+   </PIN>
+   <PIN pinname="X Input Value" slicecount="1" values="1">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="6" srcpinname="Y Output Value" dstnodeid="5" dstpinname="Log Messages">
+   </LINK>
+   <NODE systemname="SpeechRecognition (RealSense Intel(R))" filename="..\src\plugins\RealSense.Nodes\bin\x64\Debug\RealSense.Nodes.dll" nodename="SpeechRecognition (RealSense Intel(R))" componentmode="Hidden" id="8">
+   <BOUNDS type="Node" left="1644" top="2424" width="100" height="100">
+   </BOUNDS>
+   <PIN pinname="Audio Device" visible="1">
+   </PIN>
+   <PIN pinname="Enabled" visible="1">
+   </PIN>
+   <PIN pinname="Recognition Data" visible="1">
+   </PIN>
+   </NODE>
+   <NODE nodename="IOBox (Enumerations)" componentmode="InABox" id="9" systemname="IOBox (Enumerations)">
+   <BOUNDS type="Box" left="744" top="1452" width="1596" height="276">
+   </BOUNDS>
+   <BOUNDS type="Node" left="744" top="1452" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Input Enum" slicecount="1" visible="1" values="|ステレオ ミキサー (IDT High Definition Audio CODEC)|">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="9" srcpinname="Output Enum" dstnodeid="8" dstpinname="Audio Device">
+   </LINK>
+   <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="10" systemname="IOBox (Value Advanced)">
+   <BOUNDS type="Box" left="3024" top="1512" width="480" height="480">
+   </BOUNDS>
+   <BOUNDS type="Node" left="3024" top="1512" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Y Input Value" slicecount="1" visible="1" values="0">
+   </PIN>
+   <PIN pinname="Units" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Precision" slicecount="1" values="4">
+   </PIN>
+   <PIN pinname="Value Type" slicecount="1" values="Boolean">
+   </PIN>
+   <PIN pinname="Behavior" slicecount="1" values="Toggle">
+   </PIN>
+   <PIN pinname="X Input Value" slicecount="1" values="0">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="10" srcpinname="Y Output Value" dstnodeid="8" dstpinname="Enabled">
+   </LINK>
+   <NODE nodename="IOBox (String)" componentmode="InABox" id="11" systemname="IOBox (String)">
+   <BOUNDS type="Box" left="588" top="3468" width="792" height="240">
+   </BOUNDS>
+   <BOUNDS type="Node" left="588" top="3468" width="0" height="0">
+   </BOUNDS>
+   <PIN pinname="Default" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="File Mask" slicecount="1" values="||">
+   </PIN>
+   <PIN pinname="Maximum Characters" slicecount="1" values="-1">
+   </PIN>
+   </NODE>
+   <LINK srcnodeid="8" srcpinname="Recognition Data" dstnodeid="11" dstpinname="Input String">
+   </LINK>
+   </PATCH>
